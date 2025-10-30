@@ -76,7 +76,7 @@
   // ------------------------------
   let sites = load() || [];
   let windRoseTitleText = loadTitle() || '';
-  let liveWindOn = true;
+  let liveWindOn = false;
   let selectedDayOffset = 0; // 0=today, 1=tomorrow, ... up to 6
   let selectedHour = null;   // null = auto (closest now) or daily average if day offset > 0
   let hideSitesOutside = false;
@@ -517,7 +517,7 @@
     // If modular renderer is available, delegate and return
     if(window.PG && window.PG.rose && typeof window.PG.rose.drawSegments === 'function'){
       const nameToSite = Object.fromEntries(sites.map(s=>[s.name, s]));
-      const centerAverage = (function(){
+      const centerAverage = liveWindOn ? (function(){
         let use = sites.map(s=>s.weather?.now).filter(Boolean);
         const key = dayKeyForOffset(selectedDayOffset);
         if(selectedHour!==null){
@@ -528,7 +528,7 @@
         if(!use.length) return null;
         let sx=0, sy=0, speedSum=0; for(const w of use){ const rad=(w.dirDeg - 90) * Math.PI/180; const weight=Math.max(0.1, Number(w.speedKph)||0); sx += Math.cos(rad) * weight; sy += Math.sin(rad) * weight; speedSum += Number(w.speedKph)||0; }
         if(sx===0 && sy===0) return null; const avgRad = Math.atan2(sy, sx); const avgDeg = clampDeg(avgRad * 180/Math.PI + 90); return { dirDeg: avgDeg, speedKph: speedSum / use.length };
-      })();
+      })() : null;
       window.PG.rose.drawSegments(svg, {
         cx, cy,
         DIRS,
