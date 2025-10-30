@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PG ROSE - Perfect Launch Window</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+          <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" crossorigin="" />
+          <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+</head>
+<body>
+  <div class="page">
+  <aside class="card" id="controls">
+    <h2 class="title">PG ROSE</h2>
+    <p class="subtle" style="margin-top:4px; font-size:13px; font-weight:500">Build the perfect launch window</p>
+
+    <div class="stack" style="margin-top:10px">
+      <div class="row">
+        <label class="mono">My windrose title</label>
+        <input type="text" id="windRoseTitle" placeholder="e.g. Yorkshire Launch Sites" />
+      </div>
+
+      <div class="stack" style="margin-top:8px">
+        <label class="mono" style="font-weight:700">Search</label>
+        <div class="row" style="align-items:center; padding-top:6px; position:relative">
+          <input id="catalogSearch" type="text" placeholder="Search" autocomplete="off" style="flex:1; min-width:250px" />
+          <div id="catalogSuggestions" class="autocomplete-suggestions" role="listbox" aria-label="Site suggestions"></div>
+          <select id="catalogSelect" style="display:none">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="subtle" id="catalogHint"></div>
+      </div>
+
+      <details>
+        <summary class="mono" style="cursor:pointer">Add custom site</summary>
+        <div class="stack" style="padding-top:8px">
+      <div class="row">
+        <label class="mono">Site name</label>
+        <input type="text" id="siteName" placeholder="e.g. Millington" />
+      </div>
+      <div class="row" style="justify-content:space-between; align-items:flex-start">
+        <div class="stack" style="flex:1; min-width:250px">
+              <label class="mono">Pick sectors (click a slice to cycle: OFF → OK → GOOD)</label>
+              <div class="compass-wrap"><div class="compass-container" id="dirGrid" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="addBtn">Add site</button>
+        <button id="clearBtn" class="secondary">Clear all</button>
+          </div>
+      </div>
+      </details>
+
+      <div class="stack" style="margin-top:8px">
+        <label class="mono">Sites</label>
+        <div class="list" id="siteList"></div>
+      </div>
+
+      
+
+      <div class="stack" style="margin-top:10px">
+        <h3 class="title" style="margin:0">Site map</h3>
+        <div id="siteMap" style="height: 520px; border-radius:12px; overflow:hidden"></div>
+        <div class="row" style="justify-content:space-between">
+          <div class="subtle" id="mapHint">Click markers to select. Shift+drag to pan, wheel to zoom.</div>
+          <div class="row" style="gap:8px">
+            <button id="addSelectedFromMapBtn" class="secondary">Add selected</button>
+            <button id="clearMapSelectionBtn" class="secondary">Clear selection</button>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:8px">
+          <div class="row" style="align-items:center">
+            <label class="mono">Radius filter (km)</label>
+            <input type="range" id="radiusSlider" min="1" max="100" value="10" style="flex:1; margin:0 8px" />
+            <input type="number" id="radiusInput" placeholder="10" min="1" max="100" style="width:60px" />
+            <button id="drawRadiusBtn" class="secondary">Draw circle</button>
+            <button id="clearRadiusBtn" class="secondary">Clear</button>
+          </div>
+          <div class="subtle" id="radiusHint">Click anywhere on the map to set the circle center. Use your location as a shortcut.</div>
+          <div class="row" style="align-items:center">
+            <label class="mono">Polygon select</label>
+            <button id="startPolyBtn" class="secondary">Start polygon</button>
+            <button id="clearPolyBtn" class="secondary">Clear polygon</button>
+          </div>
+          <div class="subtle" id="polyHint">Click “Start polygon”, then click on the map to add points. Click the first point to finish. Drag vertices to edit.</div>
+        </div>
+      </div>
+      </div>
+
+    <div class="stack" style="margin-top:10px">
+      <details id="wxInfoBox">
+        <summary class="mono" style="cursor:pointer; font-weight:700">Live wind data</summary>
+        <div id="wxInfo" class="subtle mono" style="padding-top:6px; font-size:12px; line-height:1.4"></div>
+      </details>
+    </div>
+  </aside>
+
+  <main class="card" id="diagramPanel">
+    <div class="canvas-wrap">
+      <div class="legend" id="legend">
+        <div class="quality-pills" id="qualityLegend">
+          <span class="pill"><span class="seg-sample good" style="color:#22c55e"></span> <span>GOOD direction</span></span>
+          <span class="pill"><span class="seg-sample ok" style="color:#0ea5e9"></span> <span>OK direction</span></span>
+        </div>
+        <details id="legendDesktopToggle" open>
+          <summary class="legend-summary"><span class="caret"></span><span class="legend-icon"></span><span>Sites</span></summary>
+          <div class="legend-content" id="legendPills"></div>
+        </details>
+    </div>
+      <div id="topRightActions" style="position:absolute; right:16px; top:16px; z-index:2; display:flex; gap:8px">
+        <button id="printBtn" class="icon-btn" aria-label="Print" title="Print">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M19 8H5c-1.66 0-3 1.34-3 3v4h4v4h12v-4h4v-4c0-1.66-1.34-3-3-3zm-3 9H8v-5h8v5zm3-9V3H5v5h14zM7 5h10v1H7V5z" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+        <button id="copyPngBtn" class="icon-btn" aria-label="Copy PNG" title="Copy PNG">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <rect x="7" y="3" width="12" height="16" rx="2" ry="2" fill="none" stroke="#ffffff" stroke-width="2"></rect>
+            <rect x="3" y="7" width="12" height="14" rx="2" ry="2" fill="none" stroke="#ffffff" stroke-width="2"></rect>
+            <line x1="9" y1="8" x2="17" y2="8" stroke="#ffffff" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="9" y1="11" x2="17" y2="11" stroke="#ffffff" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="9" y1="14" x2="15" y2="14" stroke="#ffffff" stroke-width="2" stroke-linecap="round"></line>
+          </svg>
+        </button>
+        <button id="shareBtn" class="icon-btn" aria-label="Share link" title="Share link">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <circle cx="18" cy="5" r="3" fill="none" stroke="#ffffff" stroke-width="2" />
+            <circle cx="6" cy="12" r="3" fill="none" stroke="#ffffff" stroke-width="2" />
+            <circle cx="18" cy="19" r="3" fill="none" stroke="#ffffff" stroke-width="2" />
+            <line x1="8.7" y1="10.7" x2="15.3" y2="6.3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="8.7" y1="13.3" x2="15.3" y2="17.7" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button id="savePdfBtn" class="icon-btn" aria-label="Save PDF" title="Save PDF">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M5 20h14v-2H5v2zm7-18l-4 4h3v6h2V6h3l-4-4z" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+      </div>
+      <svg id="rose" viewBox="0 0 860 860" aria-label="PG Rose launch window diagram"></svg>
+      <div class="rose-controls" id="roseControls" style="position:absolute; left:16px; right:16px; bottom:16px; z-index:2; display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        <div class="live-controls" id="liveControls">
+          <button id="liveWindBtn" class="icon-btn" aria-label="Live wind" aria-pressed="true" title="Live wind">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M14.5 17c0 1.65-1.35 3-3 3s-3-1.35-3-3h2c0 .55.45 1 1 1s1-.45 1-1-.45-1-1-1H2v-2h9.5c1.65 0 3 1.35 3 3M19 6.5C19 4.57 17.43 3 15.5 3S12 4.57 12 6.5h2c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S16.33 8 15.5 8H2v2h13.5c1.93 0 3.5-1.57 3.5-3.5m-.5 4.5H2v2h16.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5v2c1.93 0 3.5-1.57 3.5-3.5S20.43 11 18.5 11"></path></svg>
+          </button>
+          <div class="live-group" id="liveGroup">
+            <label id="hideOutsideLabel" class="toggle-stack"><input id="hideOutsideToggle" type="checkbox" /><span>Flyable</span></label>
+            <div class="carousel" id="dayCarousel"><div id="dayButtons" class="day-buttons"></div></div>
+            <div class="carousel" id="hourCarousel"><div id="hourButtons" class="hour-buttons"></div></div>
+            <div class="row" id="modelRow" style="gap:8px; align-items:center; display:none">
+              <label class="mono" for="modelSelect">Model</label>
+              <select id="modelSelect" aria-label="Select weather model">
+                <option value="default">Open‑Meteo</option>
+                <option value="ukmo_seamless">UK Met Seamless</option>
+              </select>
+            </div>
+            <div class="unit-switch" id="unitSwitchDesktop" title="Toggle units" data-mode="kph">
+              <div class="track">
+                <span class="label kph" role="button" tabindex="0">KPH</span>
+                <span class="label mph" role="button" tabindex="0">MPH</span>
+                <span class="label kts" role="button" tabindex="0">KTS</span>
+                <div class="thumb"></div>
+              </div>
+            </div>
+    </div>
+          </div>
+        </div>
+      <div class="rose-controls-right" id="roseControlsRight" style="position:absolute; right:16px; bottom:16px; z-index:2; display:flex; gap:8px; align-items:center">
+        <label class="row" style="gap:6px; align-items:center"><input id="showDegrees" type="checkbox" checked /> Show degrees</label>
+        <label class="row mobile-only" style="gap:6px; align-items:center"><input id="hideOutsideTop" type="checkbox" /> Flyable</label>
+        </div>
+        </div>
+    <!-- Wind controls card (below wind rose, inside panel to avoid footer pinning) -->
+    <section class="card mobile-wind" id="mobileWindCard">
+      <div id="mobileLiveMount"></div>
+    </section>
+    <!-- Advanced toggles card -->
+    <section class="card" id="advancedTogglesCard">
+      <div class="live-controls">
+        <button id="advancedBtn" class="icon-btn" aria-label="Advanced options" aria-pressed="false" title="Advanced options">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+            <path d="M4 7h10M4 12h16M4 17h8" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+        <div class="live-group" id="advancedGroup">
+          <label class="row" style="gap:6px; align-items:center"><input id="reorderToggle" type="checkbox" /> Reorder segments (drag vertically)</label>
+          <label class="row" style="gap:6px; align-items:center"><input id="expandIsolatedToggle" type="checkbox" /> Expand isolated segments</label>
+          <label class="row" style="gap:6px; align-items:center"><input id="longNamesOutToggle" type="checkbox" /> Prefer long names outward</label>
+          <label class="row" style="gap:6px; align-items:center"><input id="ringOrderLongFirst" type="checkbox" /> Long segments inner</label>
+          <label class="row" style="gap:6px; align-items:center"><input id="showDegreesCard" type="checkbox" checked /> Show degrees</label>
+        </div>
+      </div>
+    </section>
+  </main>
+  <!-- Mobile legend card (appears below wind rose on small screens) -->
+  <section class="card mobile-legend" id="mobileLegendCard">
+    <details id="legendToggle" open>
+      <summary class="legend-summary"><span class="caret"></span><span class="legend-icon"></span><span>Sites</span></summary>
+      <div class="quality-pills" id="qualityLegendMobile">
+        <span class="pill"><span class="seg-sample good" style="color:#22c55e"></span> <span>GOOD direction</span></span>
+        <span class="pill"><span class="seg-sample ok" style="color:#0ea5e9"></span> <span>OK direction</span></span>
+      </div>
+      <div id="legendMobile" class="legend-mobile legend-content" style="max-height:none"></div>
+    </details>
+  </section>
+        </div>
+
+  <script src="core/units.js"></script>
+  <script src="core/wx-api.js"></script>
+  <script src="core/svg-utils.js"></script>
+  <script src="core/layout.js"></script>
+  <script src="core/config.js"></script>
+  <script src="core/directions.js"></script>
+  <script src="core/colors.js"></script>
+  <script src="core/state.js"></script>
+  <script src="core/time.js"></script>
+  <script src="ui/tooltips.js"></script>
+  <script src="ui/rose.js"></script>
+  <script src="ui/carousel.js"></script>
+  <script src="ui/model.js"></script>
+  <script src="ui/compass.js"></script>
+  <script src="ui/legend.js"></script>
+  <script src="core/catalog.js"></script>
+  <script src="ui/catalog.js"></script>
+  <script src="ui/map.js"></script>
+  <script src="ui/units.js"></script>
+  <script src="ui/export.js"></script>
+  <script src="ui/hotkeys.js"></script>
+<script src="app.js"></script>
+  <script src="dev/selftest.js"></script>
+</body>
+</html>

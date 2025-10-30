@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON Field Selector - PG Rose</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e5e7eb;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    
+    .controls {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #334155;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover { background: #2563eb; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { background: #475569; cursor: not-allowed; opacity: 0.5; }
+    
+    .btn.secondary {
+      background: #475569;
+    }
+    
+    .btn.secondary:hover {
+      background: #64748b;
+    }
+    
+    .btn.danger {
+      background: #dc2626;
+    }
+    
+    .btn.danger:hover {
+      background: #b91c1c;
+    }
+    
+    .btn.success {
+      background: #22c55e;
+    }
+    
+    .btn.success:hover {
+      background: #16a34a;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .stats {
+      flex: 1;
+      display: flex;
+      gap: 20px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .stat strong {
+      color: #e5e7eb;
+      font-weight: 700;
+    }
+    
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+    }
+    
+    .search-box input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e5e7eb;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .search-box input:focus {
+      outline: none;
+      border-color: #60a5fa;
+    }
+    
+    .content {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    
+    @media (max-width: 1024px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .fields-panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+    }
+    
+    .panel-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #e5e7eb;
+    }
+    
+    .field-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .field-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: #0f172a;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+    
+    .field-item:hover {
+      background: #1e293b;
+      border-color: #475569;
+    }
+    
+    .field-item.selected {
+      border-color: #3b82f6;
+      background: #1e3a5f;
+    }
+    
+    .field-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #3b82f6;
+    }
+    
+    .field-name {
+      flex: 1;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    
+    .field-count {
+      background: #334155;
+      color: #94a3b8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .field-type {
+      background: #475569;
+      color: #cbd5e1;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .preview-panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    .preview-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .preview-item {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    
+    .preview-item-header {
+      font-size: 14px;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .preview-index {
+      background: #334155;
+      color: #94a3b8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .preview-json {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+    
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #94a3b8;
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #22c55e;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .toast.error {
+      background: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>JSON Field Selector</h1>
+      <p>Choose which fields to keep in your data</p>
+    </div>
+    
+    <div class="controls">
+      <input type="file" id="fileInput" class="file-input" accept=".json" />
+      <button class="btn" onclick="document.getElementById('fileInput').click()">
+        📁 Load JSON
+      </button>
+      
+      <button class="btn secondary" onclick="selectAllFields()" id="selectAllBtn" disabled>
+        ☑️ Select All Fields
+      </button>
+      
+      <button class="btn secondary" onclick="deselectAllFields()" id="deselectAllBtn" disabled>
+        ☐ Deselect All
+      </button>
+      
+      <button class="btn secondary" onclick="invertSelection()" id="invertBtn" disabled>
+        🔄 Invert
+      </button>
+      
+      <div class="stats">
+        <div class="stat">
+          <span>Items:</span>
+          <strong id="itemCount">0</strong>
+        </div>
+        <div class="stat">
+          <span>Fields:</span>
+          <strong id="fieldCount">0</strong>
+        </div>
+        <div class="stat">
+          <span>Selected:</span>
+          <strong id="selectedCount">0</strong>
+        </div>
+      </div>
+      
+      <button class="btn success" onclick="exportFiltered()" id="exportBtn" disabled>
+        💾 Export with Selected Fields
+      </button>
+      
+      <button class="btn danger" onclick="clearData()" id="clearBtn" disabled>
+        🗑️ Clear
+      </button>
+    </div>
+    
+    <div class="content">
+      <div class="fields-panel">
+        <div class="panel-title">📋 Available Fields</div>
+        <div id="fieldList" class="field-list">
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin: 20px auto;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p style="text-align: center; color: #64748b; font-size: 13px;">Load JSON to see fields</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="preview-panel">
+        <div class="panel-title">👁️ Preview (first 5 items)</div>
+        <div id="previewGrid" class="preview-grid">
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            <h3>No preview</h3>
+            <p>Select fields to preview filtered data</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="toast" class="toast"></div>
+  
+  <script>
+    let data = [];
+    let allFields = [];
+    let selectedFields = new Set();
+    
+    // File input handler
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const jsonData = JSON.parse(event.target.result);
+          
+          if (Array.isArray(jsonData)) {
+            data = jsonData;
+          } else {
+            data = [jsonData];
+          }
+          
+          extractFields();
+          renderFields();
+          renderPreview();
+          updateButtons();
+          showToast(`Loaded ${data.length} items with ${allFields.length} unique fields`, false);
+        } catch (err) {
+          showToast('Failed to parse JSON: ' + err.message, true);
+        }
+      };
+      reader.readAsText(file);
+      
+      // Reset file input
+      e.target.value = '';
+    });
+    
+    function extractFields() {
+      const fieldMap = new Map();
+      
+      // Scan all items to find unique fields
+      data.forEach(item => {
+        scanObject(item, '', fieldMap);
+      });
+      
+      // Sort fields alphabetically
+      allFields = Array.from(fieldMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+      
+      // Select all fields by default
+      selectedFields = new Set(allFields.map(f => f.name));
+    }
+    
+    function scanObject(obj, prefix, fieldMap) {
+      if (obj === null || obj === undefined) return;
+      
+      if (Array.isArray(obj)) {
+        const fieldName = prefix;
+        if (!fieldMap.has(fieldName)) {
+          fieldMap.set(fieldName, {
+            name: fieldName,
+            type: 'array',
+            count: 1
+          });
+        } else {
+          fieldMap.get(fieldName).count++;
+        }
+        return;
+      }
+      
+      if (typeof obj === 'object') {
+        for (const key in obj) {
+          const fieldName = prefix ? `${prefix}.${key}` : key;
+          const value = obj[key];
+          
+          if (!fieldMap.has(fieldName)) {
+            fieldMap.set(fieldName, {
+              name: fieldName,
+              type: getType(value),
+              count: 1
+            });
+          } else {
+            fieldMap.get(fieldName).count++;
+          }
+          
+          // Recursively scan nested objects (but only one level deep for simplicity)
+          if (typeof value === 'object' && value !== null && !Array.isArray(value) && !prefix) {
+            scanObject(value, fieldName, fieldMap);
+          }
+        }
+      }
+    }
+    
+    function getType(value) {
+      if (value === null) return 'null';
+      if (Array.isArray(value)) return 'array';
+      return typeof value;
+    }
+    
+    function renderFields() {
+      const fieldList = document.getElementById('fieldList');
+      
+      if (allFields.length === 0) {
+        fieldList.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin: 20px auto;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p style="text-align: center; color: #64748b; font-size: 13px;">Load JSON to see fields</p>
+          </div>
+        `;
+        return;
+      }
+      
+      fieldList.innerHTML = allFields.map(field => {
+        const isSelected = selectedFields.has(field.name);
+        return `
+          <div class="field-item ${isSelected ? 'selected' : ''}" onclick="toggleField('${escapeHtml(field.name)}')">
+            <input type="checkbox" class="field-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleField('${escapeHtml(field.name)}')" />
+            <div class="field-name">${field.name}</div>
+            <div class="field-count">${field.count}/${data.length}</div>
+            <div class="field-type">${field.type}</div>
+          </div>
+        `;
+      }).join('');
+      
+      updateStats();
+    }
+    
+    function renderPreview() {
+      const previewGrid = document.getElementById('previewGrid');
+      
+      if (selectedFields.size === 0 || data.length === 0) {
+        previewGrid.innerHTML = `
+          <div class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            <h3>No preview</h3>
+            <p>Select fields to preview filtered data</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const preview = data.slice(0, 5).map((item, idx) => {
+        const filtered = filterObject(item);
+        return `
+          <div class="preview-item">
+            <div class="preview-item-header">
+              <span>Item ${idx + 1}</span>
+              <span class="preview-index">#${idx}</span>
+            </div>
+            <div class="preview-json">${JSON.stringify(filtered, null, 2)}</div>
+          </div>
+        `;
+      }).join('');
+      
+      previewGrid.innerHTML = preview;
+    }
+    
+    function filterObject(obj) {
+      const result = {};
+      
+      for (const fieldPath of selectedFields) {
+        const value = getValueByPath(obj, fieldPath);
+        if (value !== undefined) {
+          setValueByPath(result, fieldPath, value);
+        }
+      }
+      
+      return result;
+    }
+    
+    function getValueByPath(obj, path) {
+      const parts = path.split('.');
+      let current = obj;
+      
+      for (const part of parts) {
+        if (current === null || current === undefined) return undefined;
+        current = current[part];
+      }
+      
+      return current;
+    }
+    
+    function setValueByPath(obj, path, value) {
+      const parts = path.split('.');
+      let current = obj;
+      
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!(part in current)) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+      
+      current[parts[parts.length - 1]] = value;
+    }
+    
+    function toggleField(fieldName) {
+      if (selectedFields.has(fieldName)) {
+        selectedFields.delete(fieldName);
+      } else {
+        selectedFields.add(fieldName);
+      }
+      renderFields();
+      renderPreview();
+    }
+    
+    function selectAllFields() {
+      selectedFields = new Set(allFields.map(f => f.name));
+      renderFields();
+      renderPreview();
+    }
+    
+    function deselectAllFields() {
+      selectedFields.clear();
+      renderFields();
+      renderPreview();
+    }
+    
+    function escapeHtml(text) {
+      return text.replace(/'/g, "\\'");
+    }
+    
+    function invertSelection() {
+      const newSelected = new Set();
+      allFields.forEach(field => {
+        if (!selectedFields.has(field.name)) {
+          newSelected.add(field.name);
+        }
+      });
+      selectedFields = newSelected;
+      renderFields();
+      renderPreview();
+    }
+    
+    function exportFiltered() {
+      if (selectedFields.size === 0) {
+        showToast('No fields selected', true);
+        return;
+      }
+      
+      const filteredData = data.map(item => filterObject(item));
+      const jsonStr = JSON.stringify(filteredData, null, 2);
+      
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `filtered-fields-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      showToast(`Exported ${data.length} items with ${selectedFields.size} fields`, false);
+    }
+    
+    function clearData() {
+      if (confirm('Clear all data? This cannot be undone.')) {
+        data = [];
+        allFields = [];
+        selectedFields.clear();
+        renderFields();
+        renderPreview();
+        updateButtons();
+        showToast('Data cleared', false);
+      }
+    }
+    
+    function updateStats() {
+      document.getElementById('itemCount').textContent = data.length;
+      document.getElementById('fieldCount').textContent = allFields.length;
+      document.getElementById('selectedCount').textContent = selectedFields.size;
+    }
+    
+    function updateButtons() {
+      const hasData = data.length > 0;
+      document.getElementById('selectAllBtn').disabled = !hasData;
+      document.getElementById('deselectAllBtn').disabled = !hasData;
+      document.getElementById('invertBtn').disabled = !hasData;
+      document.getElementById('exportBtn').disabled = !hasData;
+      document.getElementById('clearBtn').disabled = !hasData;
+    }
+    
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast show' + (isError ? ' error' : '');
+      
+      setTimeout(() => {
+        toast.className = 'toast';
+      }, 3000);
+    }
+    
+    // Initialize
+    updateButtons();
+  </script>
+</body>
+</html>
+

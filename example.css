@@ -1,0 +1,340 @@
+/* utility to display only on mobile */
+.mobile-only { display:none; }
+@media (max-width: 1100px) { .mobile-only { display:flex; } }
+@media (min-width: 1100px) { .mobile-only { display:none !important; } }
+:root {
+  --bg: #0f172a;           /* slate-900 */
+  --panel: #111827;        /* grey-900 */
+  --panel-2: #1f2937;      /* grey-800 */
+  --ink: #e5e7eb;          /* grey-200 */
+  --muted: #94a3b8;        /* slate-400 */
+  --accent: #60a5fa;       /* blue-400 */
+}
+
+html, body {
+  margin: 0; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial;
+  color: var(--ink); background: radial-gradient(1200px 1200px at 15% 10%, #0b1228, var(--bg));
+}
+body {
+  margin: 0; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial;
+  color: var(--ink); background: radial-gradient(1200px 1200px at 15% 10%, #0b1228, var(--bg));
+}
+
+/* Two-panel layout */
+.page { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(540px, 2fr); gap: 18px; padding: 18px; box-sizing: border-box; align-items: start; }
+#controls { min-width: 0; }
+@media (max-width: 1100px) {
+  .page { grid-template-columns: 1fr; }
+  #diagramPanel { order: -1; } /* wind rose card first */
+  .legend { display: none !important; }
+  .mobile-legend { display: block; }
+  .canvas-wrap { padding-top: 8px; padding-bottom: 8px; }
+}
+
+/* Prevent unit switch from overlapping day buttons on narrow screens */
+@media (max-width: 700px) {
+  #roseControls { bottom: 64px !important; }
+  #roseControlsRight { left: 16px; right: auto; bottom: 16px; }
+  #diagramPanel.card { padding: 8px; }
+  .canvas-wrap { padding: 4px; }
+  #rose { min-height: 500px; max-height: calc(100vh - 170px); }
+}
+
+/* Show only Wind‑only and Show degrees in overlay on mobile; hide day/hour + unit there */
+@media (max-width: 1100px) {
+  #liveControls .day-buttons,
+  #liveControls .hour-buttons,
+  #liveControls .unit-switch { display: none !important; }
+}
+
+.mobile-legend { display: none; margin-top: 0; }
+.legend-mobile { display: grid; gap: 8px; }
+.legend-mobile .pill { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:#0b1222aa; border:1px solid #1f2937; font-size:12px; width: max-content; }
+
+/* Collapsible mobile legend */
+.legend-summary { list-style: none; display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:10px; background:#0b1222; border:1px solid #243043; width: max-content; }
+.legend-summary::-webkit-details-marker { display:none; }
+.legend-icon { width:14px; height:14px; border-radius:50%; background: linear-gradient(45deg, #ef4444, #22c55e, #60a5fa); box-shadow: 0 0 0 2px #0b1222; display:inline-block; }
+.mobile-legend details[open] .legend-summary { box-shadow: 0 0 0 3px #60a5fa33; }
+
+.card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.title { font-weight: 800; letter-spacing: .2px; font-size: 18px; margin: 0 0 10px; }
+.subtle { color: var(--muted); font-size: 12px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.stack { display: grid; gap: 10px; }
+label { font-size: 12px; color: var(--muted); }
+input[type="text"], select { background: #0b1222; color: var(--ink); border: 1px solid #243043; border-radius: 10px; padding: 10px 12px; outline: none; width: 100%; box-sizing: border-box; }
+input[type="text"]:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #60a5fa33; }
+
+.dir-grid { display: block; }
+.chip { display:flex; align-items:center; gap:8px; padding: 10px 36px 10px 12px; background:#0b1222; border:1px solid #1e293b; border-radius: 999px; user-select:none; cursor: pointer; width:100%; position:relative; justify-content:flex-start; }
+.chip .tag { font-size: 11px; padding: 0 8px; border-radius: 999px; border:1px solid #334155; color:#94a3b8; position:absolute; right:10px; top:50%; transform:translateY(-50%); }
+
+/* Compass selector */
+.compass-container { width: 100%; }
+.compass-svg { width: 100%; height: auto; display:block; margin-top:6px; }
+.compass-wrap { display: block; width: 100%; }
+.dir-seg { transition: fill-opacity 120ms ease, stroke-width 120ms ease; cursor: pointer; }
+.dir-seg:hover { filter: brightness(1.15); }
+.seg-badge { text-transform: uppercase; font-weight:800; letter-spacing:.3px; paint-order: stroke; stroke:#0b1222; stroke-width:2px; }
+
+button { appearance: none; border: none; background: var(--accent); color: #061428; font-weight: 700; padding: 10px 14px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 20px #60a5fa40; }
+button.secondary { background: transparent; border:1px solid #334155; color: var(--ink); box-shadow:none; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.list { display: grid; gap: 6px; max-height: 260px; overflow: auto; padding-right: 4px; }
+.list::-webkit-scrollbar { width: 12px; }
+.list::-webkit-scrollbar-track { background: #0b1222; border-radius: 10px; border: 1px solid #243043; }
+.list::-webkit-scrollbar-thumb { background: #2b3b53; border-radius: 10px; box-shadow: inset 0 0 0 2px #0b1222; }
+.list::-webkit-scrollbar-thumb:hover { background: #3a4d6b; }
+.list { scrollbar-color: #2b3b53 #0b1222; scrollbar-width: thin; }
+.item { display:flex; align-items:center; justify-content:space-between; border:1px dashed #293144; border-radius: 12px; padding: 8px 10px; }
+.tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; border:1px solid #334155; color: #94a3b8; }
+
+.canvas-wrap { position: relative; padding: 10px; }
+#rose { width: 100%; height: auto; display:block; min-height: 640px; max-height: calc(100vh - 250px); }
+
+/* Mobile override: ensure the rose is not too small nor too tall */
+@media (max-width: 700px) {
+  #rose { min-height: 500px !important; max-height: calc(100vh - 170px); }
+}
+
+/* Two-row layout for wind controls when space is tight on desktop */
+/* Stack rows (dates, times, unit) when space is tight */
+@media (max-width: 1100px) {
+  .live-group.open { grid-template-columns: 1fr; }
+  .live-group .unit-switch { justify-self: start; }
+}
+
+.legend { position:absolute; left: 16px; top: 16px; display:flex; gap: 8px; flex-wrap: wrap; max-width: 520px; z-index: 3; }
+.legend .legend-summary { list-style:none; display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 8px; border-radius:10px; background:#0b1222; border:1px solid #243043; width:max-content; }
+.legend .legend-summary::-webkit-details-marker{ display:none; }
+.legend .legend-summary .caret { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:7px solid #94a3b8; transition: transform .18s ease; }
+.legend details[open] .legend-summary .caret { transform: rotate(180deg); }
+.legend-content { overflow: hidden; transition: grid-template-rows .22s ease, opacity .22s ease; display:grid; grid-template-rows: 1fr; opacity:1; }
+.legend details:not([open]) .legend-content { grid-template-rows: 0fr; opacity:0; }
+.legend details:not([open]) .legend-content > * { overflow:hidden; }
+@media (min-width: 1100px) {
+  .legend { flex-direction: column; flex-wrap: nowrap; max-height: calc(100vh - 48px); overflow: auto; width: 300px; }
+}
+.day-buttons { display:flex; gap:6px; flex: 0 0 auto; }
+.day-buttons button { box-shadow: none; }
+.day-buttons button { background:#0b1222; color:#e5e7eb; border:1px solid #334155; padding:6px 8px; border-radius:8px; font-weight:700; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1; min-width:34px; height:40px; justify-content:center; }
+.day-buttons button .dow { font-size:12px; }
+.day-buttons button .dom { font-size:11px; opacity:.9; }
+.day-buttons button.active { background:#60a5fa; color:#061428; border-color:#60a5fa; }
+.hour-buttons { display:flex; gap:6px; flex-wrap: nowrap; }
+.hour-buttons button { box-shadow: none; }
+.hour-buttons button { background:#0b1222; color:#e5e7eb; border:1px solid #334155; padding:6px 8px; border-radius:8px; font-weight:700; cursor:pointer; min-width:44px; height:40px; display:inline-flex; align-items:center; justify-content:center; }
+.hour-buttons.compact button { height:34px; padding:4px 6px; min-width:40px; font-size:12px; }
+.hour-buttons button.active { background:#60a5fa; color:#061428; border-color:#60a5fa; }
+.legend .pill { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:#0b1222aa; border:1px solid #1f2937; font-size:12px; }
+.quality-pills { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.seg-sample { --seg:#22c55e; width:36px; height:12px; border-radius:4px; border:2px solid var(--seg); display:inline-block; box-shadow: inset 0 0 0 1px #0b122233; }
+.seg-sample.good { background: color-mix(in srgb, var(--seg) 40%, transparent); }
+.seg-sample.ok { 
+  background:
+    repeating-linear-gradient(45deg, color-mix(in srgb, #ffffff 35%, transparent) 0 6px, transparent 6px 12px),
+    color-mix(in srgb, var(--seg) 28%, transparent);
+}
+.swatch { width: 12px; height: 12px; border-radius: 50%; border:1px solid #0b1222; box-shadow: inset 0 0 0 2px #0b122244; }
+.wind-arrow { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid currentColor; }
+
+/* Pretty KPH/MPH switch */
+.unit-switch { position: relative; width: 162px; height: 34px; cursor: pointer; flex: 0 0 auto; margin-top: 4px; }
+.unit-switch .track { position:absolute; inset:0; background:#0b1222; border:1px solid #243043; border-radius:999px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-weight:800; letter-spacing:.3px; color:#94a3b8; z-index:1; cursor: pointer; }
+.unit-switch .track * { cursor: pointer; }
+.unit-switch .track .label { font-size:12px; z-index:1; }
+.unit-switch .track .thumb { position:absolute; top:3px; left:3px; width:50px; height:28px; background:#60a5fa; border-radius:999px; box-shadow:0 6px 18px #60a5fa55; transition: transform .18s ease; }
+.unit-switch[data-mode="kph"] .track .thumb { transform: translateX(0); }
+.unit-switch[data-mode="mph"] .track .thumb { transform: translateX(54px); }
+.unit-switch[data-mode="knots"] .track .thumb { transform: translateX(108px); }
+.unit-switch[data-mode="kph"] .track .kph,
+.unit-switch[data-mode="mph"] .track .mph,
+.unit-switch[data-mode="knots"] .track .kts { color:#061428; }
+
+.footer { color: #94a3b8; font-size: 12px; text-align: center; margin-top: 8px; }
+.btn-row { display:flex; gap:8px; flex-wrap: wrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* Live wind icon button and collapsible group */
+.icon-btn { background:#0b1222; border:1px solid #334155; color:#e5e7eb; padding:8px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; box-shadow:none; }
+.icon-btn[aria-pressed="true"] { background:#60a5fa; color:#061428; border-color:#60a5fa; }
+.live-controls { position: relative; display:flex; align-items:center; gap:10px; padding-left: 46px; min-height: 40px; }
+.live-controls .icon-btn { position:absolute; left:0; top:50%; transform: translateY(-50%); width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; }
+.live-controls .icon-btn svg { display:block; }
+.live-controls .icon-btn svg path { fill: currentColor; }
+.rose-controls { align-content: flex-end; }
+.live-group { display:grid; align-items:center; gap:10px; max-width:0; overflow:hidden; opacity:0; transition:max-width .25s ease, opacity .18s ease, margin-left .25s ease; margin-left:0; width:100%; grid-template-columns: auto 1fr auto; }
+.live-group.open { max-width: 1200px; opacity:1; margin-left:6px; overflow:visible; }
+.live-group .unit-switch { justify-self: end; }
+
+/* Mobile: make the popout wrap and stay within the viewport */
+@media (max-width: 700px) {
+  .rose-controls { left: 8px !important; right: 8px !important; bottom: 64px !important; }
+  /* Make popout controls smaller below the rose */
+  .day-buttons button { height: 34px; padding:4px 6px; min-width:30px; }
+  .day-buttons button .dow { font-size:11px; }
+  .day-buttons button .dom { font-size:10px; }
+  .hour-buttons button { height: 34px; padding:4px 8px; min-width:42px; font-size:12px; }
+  .live-controls { padding-left: 44px; min-height: 36px; }
+  .live-controls .icon-btn { width:36px; height:36px; }
+  .live-group { max-width: 0; flex-wrap: wrap; row-gap: 8px; }
+  .live-group.open { max-width: 100%; }
+  .day-buttons { flex-wrap: wrap; }
+  .hour-buttons { flex-wrap: nowrap; }
+}
+/* Carousel wrappers for day and hour buttons */
+.carousel { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; cursor: grab; scroll-behavior: smooth; }
+.carousel.drag { cursor: grabbing; }
+.carousel::-webkit-scrollbar { display: none; }
+.carousel .day-buttons button, .carousel .hour-buttons button { scroll-snap-align: center; }
+.carousel { scroll-snap-type: x mandatory; }
+/* Make scrollability obvious with edge fades */
+.carousel { position: relative; }
+.carousel::before, .carousel::after { content: ''; position: absolute; top: 0; bottom: 0; width: 22px; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .18s ease; }
+.carousel.scrollable::before, .carousel.scrollable::after { opacity: 1; }
+.carousel::before { left: 0; background: linear-gradient(to right, rgba(11,18,34,0.85), rgba(11,18,34,0)); }
+.carousel::after { right: 0; background: linear-gradient(to left, rgba(11,18,34,0.85), rgba(11,18,34,0)); }
+.carousel.at-start::before { opacity: 0; }
+.carousel.at-end::after { opacity: 0; }
+
+/* Mobile wind card hidden on desktop */
+.mobile-wind { display:block; margin-top: 8px; padding: 10px; position: static; bottom: auto; z-index: auto; }
+/* Always hide overlay controls; we use the card below the rose instead */
+#roseControls, #roseControlsRight { display: none !important; }
+
+/* Place wind controls card under the windrose on desktop (grid column 2) */
+@media (min-width: 1100px) {
+  #mobileWindCard { grid-column: 2; }
+  .mobile-wind { position: static; bottom: auto; z-index: auto; }
+}
+
+/* Hide tolerance control in overlay on mobile (keep it in mobile card only) */
+@media (max-width: 1100px) {
+  #liveControls #tolInput, #liveControls label > .mono { display:none !important; }
+}
+
+/* Keep mobile wind card compact when closed */
+#mobileWindCard .live-controls { position: relative; padding-left: 46px; min-height: 40px; display:flex; flex-direction:column; align-items:flex-start; }
+#mobileWindCard .icon-btn { position:absolute; left:0; top:50%; transform: translateY(-50%); width:40px; height:40px; }
+#mobileWindCard .live-group { max-height:0; overflow:hidden; opacity:0; transition:max-height .25s ease, opacity .18s ease, margin-left .25s ease; margin-left:0; display:grid; grid-template-rows:auto auto; gap:10px; width:100%; margin-top: 0; align-items:center; }
+#mobileWindCard .live-group.open { max-height: 260px; opacity:1; margin-left:6px; }
+/* Top row: day/hour next to icon */
+#mobileWindCard .live-group .row-top { display:flex; gap:10px; align-items:center; min-height:40px; }
+#mobileWindCard .live-group .row-top .carousel { flex:1 1 0; }
+/* Bottom row: flyable + unit on one line */
+#mobileWindCard .live-group .row-bottom { display:flex; gap:10px; align-items:center; }
+/* Prevent wrapping inside mobile date carousel */
+#mobileWindCard .day-buttons { flex-wrap: nowrap; }
+/* Ensure controls inside wind card match icon height */
+#mobileWindCard .day-buttons button,
+#mobileWindCard .hour-buttons button { height: 40px; padding: 6px 8px; }
+#mobileWindCard .unit-switch { height: 40px; }
+#mobileWindCard .unit-switch .track .thumb { top: 4px; height: 32px; }
+
+/* Keep long text in wx info from forcing column growth */
+#wxInfo { overflow-wrap: anywhere; word-break: break-word; }
+#wxInfo code { display: block; white-space: normal; word-break: break-all; }
+
+/* Advanced toggles card adopts the same expandable pattern */
+#advancedTogglesCard .live-controls { position: relative; padding-left: 46px; min-height: 40px; display:flex; align-items:center; }
+#advancedTogglesCard .icon-btn { position:absolute; left:0; top:50%; transform: translateY(-50%); width:40px; height:40px; }
+#advancedTogglesCard .live-group { max-height:0; overflow:hidden; opacity:0; transition:max-height .25s ease, opacity .18s ease, margin-left .25s ease; margin-left:0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; width:100%; margin-top: 0; }
+#advancedTogglesCard .live-group.open { max-height: 300px; opacity:1; margin-left:6px; }
+/* Match card spacing with wind controls card */
+#advancedTogglesCard { padding: 10px; margin-top: 12px; }
+
+/* Make wind and advanced control cards transparent */
+#mobileWindCard.card,
+#advancedTogglesCard.card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* Unified label style for Wind‑only */
+#hideOutsideLabel { display:flex; align-items:center; gap:10px; background:#0b1222; border:1px solid #334155; padding:8px 12px; border-radius:10px; min-height:40px; }
+#hideOutsideLabel input { width:20px; height:20px; }
+#hideOutsideLabel span { font-weight:800; letter-spacing:.2px; }
+/* Mobile stacked label styling reuse */
+#hideOutsideLabelMobile { display:flex; align-items:center; gap:10px; background:#0b1222; border:1px solid #334155; padding:0 12px; border-radius:10px; height:40px; }
+#hideOutsideLabelMobile input { width:20px; height:20px; }
+#hideOutsideLabelMobile span { font-weight:800; letter-spacing:.2px; }
+
+/* Tooltip */
+.tooltip { position: fixed; left: 0; top: 0; transform: translate(12px, -18px);
+  padding: 6px 10px; background: #111827cc; color: #ffffff; border: 1px solid #1f2937;
+  border-radius: 8px; font-size: 12px; font-weight: 700; pointer-events: none; opacity: 0;
+  transition: opacity 80ms linear; z-index: 9999; white-space: nowrap; }
+#rose text { pointer-events: visiblePainted; }
+  .chip .dir-label { color: var(--ink); font-weight: 600; letter-spacing: .2px; opacity: .95; }
+
+/* Empty-state animations (one-shot, staggered, extreme ease) */
+@keyframes drawArc {
+  0% { stroke-dasharray: 600; stroke-dashoffset: 600; opacity: 0; transform: scale(.85); }
+  100% { stroke-dasharray: 600; stroke-dashoffset: 0; opacity: 1; transform: scale(1); }
+}
+@keyframes textMaskRise {
+  0% { opacity: 0; transform: translateY(1.2em); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.empty-arc {
+  stroke-linecap: round;
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  will-change: transform, stroke-dashoffset, opacity;
+  animation: drawArc 1000ms cubic-bezier(.9, 0, .1, 1) both;
+  animation-delay: var(--d, 0s);
+}
+.empty-text {
+  text-transform: uppercase; letter-spacing: .6px; fill: #ffffff;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: textMaskRise 900ms cubic-bezier(.9, 0, .1, 1) both;
+  animation-delay: var(--td, 0s);
+}
+
+/* Animate newly added segments */
+@keyframes segDash { to { stroke-dashoffset: 0; } }
+@keyframes segFade { from { opacity: 0; } to { opacity: 1; } }
+.seg-draw-in { will-change: stroke-dashoffset; animation: segDash 1000ms cubic-bezier(.2,.7,.2,1) forwards; }
+.seg-fade-in { animation: segFade 700ms ease-out forwards; }
+
+/* Defensive: prevent Grammarly overlays from intercepting clicks */
+grammarly-desktop-integration,
+grammarly-extension,
+[data-grammarly-shadow-root],
+div.grammarly-desktop-integration {
+  pointer-events: none !important;
+}
+
+/* Autocomplete suggestions for catalog search */
+.autocomplete-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #0b1222;
+  border: 1px solid #243043;
+  border-radius: 10px;
+  max-height: 260px;
+  overflow: auto;
+  z-index: 10;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  display: none;
+}
+.autocomplete-suggestions.open { display: block; }
+.autocomplete-suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.autocomplete-suggestion:hover,
+.autocomplete-suggestion.is-active { background: #0f172a; }
+.autocomplete-empty { padding: 8px 12px; color: #94a3b8; font-size: 12px; }
