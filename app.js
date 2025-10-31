@@ -438,15 +438,16 @@
   function draw(){
     clearSVG();
     try{ console.log('[PG Rose] draw()', { siteCount: (sites||[]).length }); }catch(_){/* noop */}
+    const embedCy = isEmbed ? (cy + 20) : cy;
     window.PG.rose.drawGuides(svg, {
-      cx, cy,
+      cx, cy: embedCy,
       guideRadius: isEmbed ? 410 : guideRadius,
       coreMargin: isEmbed ? 60 : CORE_MARGIN,
       DIRS,
       showDegrees,
       titleText: windRoseTitleText,
-      titleOffsetDesktopPx,
-      titleOffsetMobilePx,
+      titleOffsetDesktopPx: isEmbed ? -64 : titleOffsetDesktopPx,
+      titleOffsetMobilePx: isEmbed ? -64 : titleOffsetMobilePx,
       showTip, hideTip, moveTip,
       onEditTitle: isEmbed ? null : ({ rect, isMobile })=>{
         try{
@@ -675,6 +676,7 @@
     return params.get('s') || null; // legacy support only
   }
   let pendingShareNames = null;
+  let pendingThemeName = null;
   function importSitesByNames(names){
     if(!Array.isArray(names) || !names.length) return false;
     const toAdd = [];
@@ -731,6 +733,17 @@
         if(catalogData && catalogData.length){ imported = importSitesByNames(names); }
         else { pendingShareNames = names; imported = true; }
       }
+      // Optional flags: reorder, expand, longnames, ring=long|short, showdeg=0|1, theme=Name
+      try{
+        const f = (k)=> (params.get(k)||'').toLowerCase();
+        const tf = (k)=>{ const v=f(k); return v==='1'||v==='true'||v==='yes'; };
+        if(params.has('reorder')) reorderMode = tf('reorder');
+        if(params.has('expand')) expandIsolatedSegments = tf('expand');
+        if(params.has('longnames')) longNamesOut = tf('longnames');
+        const ring=f('ring'); if(ring==='long'||ring==='short'){ ringOrder = ring; }
+        if(params.has('showdeg')){ const on = tf('showdeg'); try{ if(showDegrees) showDegrees.checked = on; }catch(_){/* noop */} }
+        const theme = params.get('theme'); if(theme){ pendingThemeName = theme; }
+      }catch(_){/* noop */}
       if(token){
         const json = base64Decode(token);
         const data = JSON.parse(json);
@@ -809,6 +822,8 @@
         importSitesByNames(pendingShareNames);
         pendingShareNames = null;
       }
+      // Apply theme if requested
+      if(pendingThemeName){ try{ applyThemeByName(pendingThemeName); }catch(_){/* noop */} }
       try{ console.log('[PG Rose] catalog loaded', { count: catalogData.length, importedSites: (sites||[]).map(s=>s.name) }); }catch(_){/* noop */}
     }catch(err){
       if(catalogHint) catalogHint.textContent = 'Could not load catalog. Check data/sites.json or use Import JSON.';
@@ -1534,6 +1549,21 @@
   // ------------------------------
   // Advanced buttons (toggle states, themes, shuffle colours)
   // ------------------------------
+  function applyThemeByName(name){ try{
+    if(!name) return false; const key=String(name||'').toLowerCase();
+    const themes = {
+      'ocean':[200,210,190,220,180,205],
+      'sunset':[15,340,10,30,5,25],
+      'forest':[120,140,100,160,110,130],
+      'metro':[260,280,300,240,320,290],
+      'pastel':[330,20,50,140,200,260],
+      'warm':[10,25,40,8,18,35],
+      'cool':[185,205,225,245,265,285],
+      'mono blue':[205,205,205,205,205,205]
+    };
+    const hues = themes[key]; if(!hues) return false; const hsl=(h)=>`hsl(${h} 70% 55%)`;
+    (sites||[]).forEach((s,i)=>{ s.color = hsl(hues[i%hues.length]); }); save(); draw(); return true;
+  }catch(_){ return false; } }
   (function initAdvancedButtons(){
     const reorderBtn = document.getElementById('reorderBtn');
     const expandBtn = document.getElementById('expandBtn');
