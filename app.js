@@ -438,16 +438,16 @@
   function draw(){
     clearSVG();
     try{ console.log('[PG Rose] draw()', { siteCount: (sites||[]).length }); }catch(_){/* noop */}
-    const embedCy = isEmbed ? (cy + 20) : cy;
+    const embedCy = isEmbed ? cy : cy;
     window.PG.rose.drawGuides(svg, {
       cx, cy: embedCy,
-      guideRadius: isEmbed ? 410 : guideRadius,
-      coreMargin: isEmbed ? 60 : CORE_MARGIN,
+      guideRadius: guideRadius,
+      coreMargin: CORE_MARGIN,
       DIRS,
       showDegrees,
       titleText: windRoseTitleText,
-      titleOffsetDesktopPx: isEmbed ? -64 : titleOffsetDesktopPx,
-      titleOffsetMobilePx: isEmbed ? -64 : titleOffsetMobilePx,
+      titleOffsetDesktopPx: isEmbed ? -20 : titleOffsetDesktopPx,
+      titleOffsetMobilePx: isEmbed ? -20 : titleOffsetMobilePx,
       showTip, hideTip, moveTip,
       onEditTitle: isEmbed ? null : ({ rect, isMobile })=>{
         try{
