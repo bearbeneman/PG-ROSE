@@ -151,7 +151,7 @@
             <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M14.5 17c0 1.65-1.35 3-3 3s-3-1.35-3-3h2c0 .55.45 1 1 1s1-.45 1-1-.45-1-1-1H2v-2h9.5c1.65 0 3 1.35 3 3M19 6.5C19 4.57 17.43 3 15.5 3S12 4.57 12 6.5h2c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S16.33 8 15.5 8H2v2h13.5c1.93 0 3.5-1.57 3.5-3.5m-.5 4.5H2v2h16.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5v2c1.93 0 3.5-1.57 3.5-3.5S20.43 11 18.5 11"></path></svg>
           </button>
           <div class="live-group" id="liveGroup">
-            <label id="hideOutsideLabel" class="toggle-stack"><input id="hideOutsideToggle" type="checkbox" /><span>Flyable</span></label>
+            <label id="hideOutsideLabel" class="toggle-stack"><input id="hideOutsideToggle" type="checkbox" /><span>Direction</span></label>
             <div class="carousel" id="dayCarousel"><div id="dayButtons" class="day-buttons"></div></div>
             <div class="carousel" id="hourCarousel"><div id="hourButtons" class="hour-buttons"></div></div>
             <div class="row" id="modelRow" style="gap:8px; align-items:center; display:none">
@@ -174,7 +174,7 @@
         </div>
       <div class="rose-controls-right" id="roseControlsRight" style="position:absolute; right:16px; bottom:16px; z-index:2; display:flex; gap:8px; align-items:center">
         <label class="row" style="gap:6px; align-items:center"><input id="showDegrees" type="checkbox" checked /> Show degrees</label>
-        <label class="row mobile-only" style="gap:6px; align-items:center"><input id="hideOutsideTop" type="checkbox" /> Flyable</label>
+        <label class="row mobile-only" style="gap:6px; align-items:center"><input id="hideOutsideTop" type="checkbox" /> Direction</label>
         </div>
         </div>
     <!-- Wind controls card (below wind rose, inside panel to avoid footer pinning) -->
@@ -190,15 +190,45 @@
           </svg>
         </button>
         <div class="live-group" id="advancedGroup">
-          <label class="row" style="gap:6px; align-items:center"><input id="reorderToggle" type="checkbox" /> Reorder segments (drag vertically)</label>
-          <label class="row" style="gap:6px; align-items:center"><input id="expandIsolatedToggle" type="checkbox" /> Expand isolated segments</label>
-          <label class="row" style="gap:6px; align-items:center"><input id="longNamesOutToggle" type="checkbox" /> Prefer long names outward</label>
-          <label class="row" style="gap:6px; align-items:center"><input id="ringOrderLongFirst" type="checkbox" /> Long segments inner</label>
-          <label class="row" style="gap:6px; align-items:center"><input id="showDegreesCard" type="checkbox" checked /> Show degrees</label>
+          <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+            <button id="reorderBtn" class="secondary" aria-pressed="false">Reorder (drag)</button>
+            <button id="expandBtn" class="secondary" aria-pressed="false">Expand segments</button>
+            <button id="longNamesOutBtn" class="secondary" aria-pressed="false">Long names outward</button>
+            <button id="longSegInnerBtn" class="secondary" aria-pressed="false">Long segments inner</button>
+            <button id="showDegreesBtn" class="secondary" aria-pressed="true">Show degrees</button>
+            <button id="openThemeBtn" class="secondary">Theme</button>
+          </div>
+          
         </div>
       </div>
     </section>
   </main>
+  <!-- Theme & Colours panel (desktop + mobile) -->
+  <div id="themePanel" style="display:none; position:fixed; inset:0; background:transparent; z-index:9999">
+    <div role="dialog" aria-modal="true" aria-label="Themes and colours" style="position:absolute; right:12px; top:12px; transform:none; width:min(420px,92vw); max-height:86vh; overflow:auto; background:#0b1222; border:1px solid #1f2937; border-radius:12px; padding:10px; box-shadow:0 12px 40px rgba(0,0,0,.4)">
+      <div class="row" style="justify-content:space-between; align-items:center; gap:8px">
+        <h3 class="title" style="margin:0">Themes & Colours</h3>
+        <button id="themeCloseBtn" class="icon-btn" aria-label="Close" title="Close">×</button>
+      </div>
+      <div class="stack" style="gap:6px; margin-top:8px">
+        <label class="mono">Theme presets</label>
+        <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+          <button id="shuffleColorsBtn" class="secondary">Shuffle colours</button>
+          <button id="themeCycleBtn" class="secondary">Cycle theme</button>
+        </div>
+        <div id="themeGrid" class="row" style="flex-direction:column; gap:8px"></div>
+      </div>
+      <div id="gradBlock" class="stack" style="gap:6px; margin-top:10px; display:none">
+        <label class="mono">Custom gradient</label>
+        <div id="gradPreview" style="height:14px; border-radius:8px; border:1px solid #1f2937; background:#111827; position:relative; cursor:ew-resize"></div>
+        <div id="gradStops" class="stack" style="gap:6px"></div>
+        <div class="row" style="gap:8px; align-items:center">
+          <button id="addGradStopBtn" class="secondary">Add stop</button>
+          <button id="applyGradientBtn" class="secondary">Apply gradient</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Mobile legend card (appears below wind rose on small screens) -->
   <section class="card mobile-legend" id="mobileLegendCard">
     <details id="legendToggle" open>

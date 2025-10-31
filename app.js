@@ -80,6 +80,7 @@
   let selectedDayOffset = 0; // 0=today, 1=tomorrow, ... up to 6
   let selectedHour = null;   // null = auto (closest now) or daily average if day offset > 0
   let hideSitesOutside = false;
+  let showClosedOnMap = false; // hide closed sites on map by default
   let units = 'kph';
   let weatherModel = 'ukmo_seamless';
   let titleOffsetDesktopPx = -16;
@@ -101,6 +102,10 @@
   let manualRingTargets = {};
   let lastAssignedRings = {};
   let reorderMode = false;
+  // Segment visual controls (do not affect wind logic)
+  let GAP_PX = 4.6;          // pixel gap between segments at any radius (baked-in)
+  let GAP_DEG = 0;         // additional angular trim per side (deg)
+  let GLOBAL_ROTATE_DEG = 0.25; // rotate all segments visually (deg) (baked-in)
 
   function save(){ return window.PG.state.saveState({ sites, windRoseTitleText, liveWindOn, selectedDayOffset, hideSitesOutside, units, selectedHour, weatherModel, LABEL_RADIUS_FACTOR, ringOrder, longNamesOut, expandIsolatedSegments, manualRingTargets, reorderMode }); }
   function load(){ return window.PG.state.readSites(); }
@@ -532,7 +537,9 @@
       window.PG.rose.drawSegments(svg, {
         cx, cy,
         DIRS,
-        padDeg: 0.8,
+        padDeg: GAP_DEG,
+        padPx: GAP_PX,
+        globalRotateDeg: GLOBAL_ROTATE_DEG,
         layout,
         unionArcs, goodArcs, okOnlyArcs,
         liveWindOn, hideSitesOutside, expandIsolatedSegments,
@@ -670,6 +677,8 @@
     if(!toAdd.length) return false;
     toAdd.forEach(site=>{ sites.push(site); animateSiteIds.add(site.id); });
     save(); draw();
+    rebuildBlockedIndexSet();
+    renderMarkers(false);
     try{ toAdd.forEach(site=>{ const lat=Number(site?.lat), lng=Number(site?.lng); if(Number.isFinite(lat)&&Number.isFinite(lng)){ fetchSiteWeather(lat,lng).then(w=>{ if(w){ site.weather=w; save(); draw(); } }); } }); }catch(_){/* noop */}
     return true;
   }
@@ -756,6 +765,7 @@
       const data = await resp.json();
       if(!Array.isArray(data)) throw new Error('Expected an array');
       catalogData = data;
+      rebuildBlockedIndexSet();
       fillCatalogSelect();
       initCatalogTypeahead();
       if(catalogHint) catalogHint.textContent = '';
@@ -774,6 +784,8 @@
   // Map: display catalog sites and allow selection
   // ------------------------------
   let map, markerLayer;
+  // Catalog indices that are already present in the wind rose (blocked from selection)
+  let blockedIndices = new Set();
   const selectedIds = new Set(); // catalog index numbers as string keys
   // Debug helper
   function log(){ try{ console.log('[PG Rose]', ...arguments);}catch(_){} }
@@ -825,6 +837,12 @@
         // auto-select/deselect based on radius unless user manually overrode
         const key = String(layer.options.siteIdx ?? '');
         if(key !== ''){
+          // Block markers that are already in the wind rose
+          if(blockedIndices && blockedIndices.has(key)){
+            selectedIds.delete(key);
+            applyMarkerVisual(layer, false);
+            return; // skip blocked marker
+          }
           const manuallyOn = manualSelected.has(key);
           const manuallyOff = manualDeselected.has(key);
           if(!manuallyOff && (manuallyOn || isWithinRadius)){
@@ -856,6 +874,36 @@
     const lng = Number(s?.lng ?? s?.lon ?? s?.long ?? s?.longitude ?? s?.Lng ?? s?.LON);
     if(Number.isNaN(lat) || Number.isNaN(lng)) return null;
     return { lat, lng };
+  }
+
+  function isClosedRecord(rec){
+    try{
+      const v = rec && rec.closed;
+      if(v===true) return true;
+      if(v===false) return false;
+      const s = String(v||'').toLowerCase();
+      return s==='true' || s==='yes' || s==='closed';
+    }catch(_){ return false; }
+  }
+
+  function rebuildBlockedIndexSet(){
+    try{
+      const names = new Set((sites||[]).map(s=> String(s.name||'').toLowerCase()).filter(Boolean));
+      const next = new Set();
+      for(let i=0;i<catalogData.length;i++){
+        const rec = catalogData[i];
+        const nm = nameFromRecord(rec, i);
+        if(names.has(String(nm||'').toLowerCase())) next.add(String(i));
+      }
+      blockedIndices = next;
+      try{ window.PG = window.PG || {}; window.PG._blockedIndices = blockedIndices; }catch(_){/* noop */}
+    }catch(_){ blockedIndices = new Set(); }
+  }
+
+  function toggleShowClosedOnMap(){
+    showClosedOnMap = !showClosedOnMap;
+    renderMarkers(false);
+    if(mapHint){ mapHint.textContent = showClosedOnMap ? 'Closed sites are visible. Click markers to select.' : 'Closed sites are hidden. Press Ctrl+Shift+H to show them.'; }
   }
 
   function markerIcon(selected){ try{ if(window.PG && window.PG.map && window.PG.map.markerIcon){ return window.PG.map.markerIcon(selected); } }catch(_){/* noop */}
@@ -988,10 +1036,12 @@
     catalogData.forEach((rec, i)=>{
       const ll = hasLatLng(rec);
       if(!ll) return;
+      if(!showClosedOnMap && isClosedRecord(rec)) return; // hide closed sites by default
       const isSel = selectedIds.has(String(i));
       const m = L.marker([ll.lat, ll.lng], { icon: markerIcon(isSel), siteIdx: i });
       m.on('click', ()=>{
         const key = String(i);
+        if(blockedIndices && blockedIndices.has(key)) return; // not selectable while in wind rose
         if(selectedIds.has(key)){
           selectedIds.delete(key);
           if(radiusCircle || polygon){ manualDeselected.add(key); } // record override if a region is active
@@ -1048,6 +1098,8 @@
       }
       if(added.length){ save(); draw(); }
       if(mapHint){ mapHint.textContent = added.length ? `Added: ${added.join(', ')}` : 'Nothing new to add (already present).'; }
+      rebuildBlockedIndexSet();
+      renderMarkers(false);
       // keep selection
     });
   }
@@ -1107,22 +1159,44 @@
     segs.forEach(seg=>{ seg.dataset.state='0'; seg.dispatchEvent(new Event('click')); seg.dataset.state='0'; });
 
     draw();
+    rebuildBlockedIndexSet();
+    renderMarkers(false);
     // If a marker is selected on map, attach its lat/lng to site for weather (best-effort)
     // Otherwise weather will not be fetched for manual sites without coordinates
   });
 
   clearBtn.addEventListener('click', ()=>{
     if(!sites.length) return;
-    if(confirm('Remove all sites?')){ sites = []; save(); draw(); }
+    if(confirm('Remove all sites?')){ sites = []; save(); draw(); rebuildBlockedIndexSet(); renderMarkers(false); }
   });
 
   siteList.addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-act="delete"]');
     if(!btn) return;
     const id = btn.getAttribute('data-id');
+    // If this site corresponds to a catalog entry, deselect its marker on the map
+    try{
+      const removed = (sites||[]).find(s=> s.id===id);
+      const removedName = removed && removed.name ? String(removed.name).toLowerCase() : null;
+      if(removedName){
+        for(let i=0;i<catalogData.length;i++){
+          const nm = String(nameFromRecord(catalogData[i], i)||'').toLowerCase();
+          if(nm === removedName){
+            const key = String(i);
+            selectedIds.delete(key);
+            manualSelected.delete(key);
+            manualDeselected.delete(key);
+            break;
+          }
+        }
+      }
+    }catch(_){/* noop */}
     sites = sites.filter(s=>s.id!==id);
     save();
     draw();
+    rebuildBlockedIndexSet();
+    renderMarkers(false);
+    updateMapSelectionUI();
   });
 
   // Auto-add from site list selection
@@ -1135,7 +1209,7 @@
       const site = normaliseRecord(rec, idx);
       const exists = sites.some(s=> s.name.toLowerCase() === site.name.toLowerCase());
       if(!exists){
-        sites.push(site); animateSiteIds.add(site.id); save(); draw();
+        sites.push(site); animateSiteIds.add(site.id); save(); draw(); rebuildBlockedIndexSet(); renderMarkers(false);
         if(Number.isFinite(site.lat) && Number.isFinite(site.lng)){
           fetchSiteWeather(site.lat, site.lng).then(w=>{ if(w){ site.weather=w; save(); draw(); }});
         }
@@ -1240,7 +1314,7 @@
         <div class="carousel" id="hourCarouselMobile"><div id="hourButtonsMobile" class="hour-buttons compact"></div></div>
       </div>
       <div class="row-bottom">
-        <label id="hideOutsideLabelMobile" class="toggle-stack"><input id="hideOutsideToggleCard" type="checkbox" /> <span>Flyable</span></label>
+        <label id="hideOutsideLabelMobile" class="toggle-stack"><input id="hideOutsideToggleCard" type="checkbox" /> <span>Direction</span></label>
         <div class="unit-switch" id="unitSwitchMobile" title="Toggle units" data-mode="kph">
         <div class="track">
             <span class="label kph" role="button" tabindex="0">KPH</span>
@@ -1413,6 +1487,89 @@
   })();
 
   // ------------------------------
+  // Advanced buttons (toggle states, themes, shuffle colours)
+  // ------------------------------
+  (function initAdvancedButtons(){
+    const reorderBtn = document.getElementById('reorderBtn');
+    const expandBtn = document.getElementById('expandBtn');
+    const longNamesBtn = document.getElementById('longNamesOutBtn');
+    const longSegBtn = document.getElementById('longSegInnerBtn');
+    const showDegBtn = document.getElementById('showDegreesBtn');
+    const shuffleBtn = document.getElementById('shuffleColorsBtn');
+    const themeBtn = document.getElementById('themeCycleBtn');
+    const openThemeBtn = document.getElementById('openThemeBtn');
+    const themePanel = document.getElementById('themePanel');
+    const themeCloseBtn = document.getElementById('themeCloseBtn');
+    const themeGrid = document.getElementById('themeGrid');
+    const gradStopsEl = document.getElementById('gradStops');
+    const gradPreview = document.getElementById('gradPreview');
+    const addGradStopBtn = document.getElementById('addGradStopBtn');
+    const applyGradBtn = document.getElementById('applyGradientBtn');
+    const gradBlock = document.getElementById('gradBlock');
+    function setPressed(el, on){ if(el){ el.setAttribute('aria-pressed', on ? 'true' : 'false'); try{ el.classList.toggle('active', !!on); el.style.background=''; el.style.boxShadow=''; }catch(_){/* noop */} } }
+    function sync(){ setPressed(reorderBtn, !!reorderMode); setPressed(expandBtn, !!expandIsolatedSegments); setPressed(longNamesBtn, !!longNamesOut); setPressed(longSegBtn, ringOrder==='long'); const ov=document.getElementById('showDegrees'); setPressed(showDegBtn, !!(ov && ov.checked)); }
+    if(reorderBtn){ reorderBtn.addEventListener('click', ()=>{ reorderMode=!reorderMode; save(); draw(); sync(); }); }
+    if(expandBtn){ expandBtn.addEventListener('click', ()=>{ expandIsolatedSegments=!expandIsolatedSegments; save(); draw(); sync(); }); }
+    if(longNamesBtn){ longNamesBtn.addEventListener('click', ()=>{ longNamesOut=!longNamesOut; save(); draw(); sync(); }); }
+    if(longSegBtn){ longSegBtn.addEventListener('click', ()=>{ ringOrder = (ringOrder==='long') ? 'short' : 'long'; save(); draw(); sync(); }); }
+    if(showDegBtn){ showDegBtn.addEventListener('click', ()=>{ const ov=document.getElementById('showDegrees'); if(ov){ ov.checked = !ov.checked; } draw(); sync(); }); }
+    function hsl(h){ return `hsl(${h} 70% 55%)`; }
+    function shuffleColours(){ const base = Math.random()*360; const phi = 137.508; (sites||[]).forEach((s,i)=>{ s.color = hsl((base + i*phi)%360); }); save(); draw(); }
+    let themeIdx = 0; const themes = [
+      { name:'Ocean', hues:[200, 210, 190, 220, 180, 205] },
+      { name:'Sunset', hues:[15, 340, 10, 30, 5, 25] },
+      { name:'Forest', hues:[120, 140, 100, 160, 110, 130] },
+      { name:'Metro', hues:[260, 280, 300, 240, 320, 290] },
+      { name:'Pastel', hues:[330, 20, 50, 140, 200, 260] },
+      { name:'Warm', hues:[10, 25, 40, 8, 18, 35] },
+      { name:'Cool', hues:[185, 205, 225, 245, 265, 285] },
+      { name:'Mono Blue', hues:[205, 205, 205, 205, 205, 205] }
+    ];
+    function applyThemeByIndex(idx){ const t = themes[idx % themes.length]; (sites||[]).forEach((s,i)=>{ s.color = hsl(t.hues[i % t.hues.length]); }); if(gradBlock){ gradBlock.style.display='none'; } save(); draw(); }
+    function applyTheme(){ applyThemeByIndex(themeIdx); themeIdx++; }
+    function renderThemeGrid(){ if(!themeGrid) return; themeGrid.innerHTML=''; themes.forEach((t, i)=>{ const btn=document.createElement('button'); btn.className='secondary'; btn.textContent=t.name; btn.style.padding='6px 10px'; btn.style.borderRadius='8px'; const stops=t.hues.map((h,j)=>`hsl(${h} 70% 55%) ${(j/(t.hues.length-1))*100}%`).join(','); btn.style.background=`linear-gradient(90deg, ${stops})`; btn.style.color='#e5e7eb'; btn.style.border='1px solid #1f2937'; btn.style.textAlign='left'; btn.style.width='100%'; btn.addEventListener('click', ()=>{ applyThemeByIndex(i); }); themeGrid.appendChild(btn); }); const custom=document.createElement('button'); custom.className='secondary'; custom.textContent='Custom…'; custom.style.padding='6px 10px'; custom.style.borderRadius='8px'; custom.style.width='100%'; custom.addEventListener('click', ()=>{ if(gradBlock){ gradBlock.style.display='block'; try{ gradBlock.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(_){/* noop */} } }); themeGrid.appendChild(custom); }
+    function hexToRgb(hex){ const s=String(hex||'').replace('#',''); if(s.length===3){ const r=parseInt(s[0]+s[0],16), g=parseInt(s[1]+s[1],16), b=parseInt(s[2]+s[2],16); return {r,g,b}; } const r=parseInt(s.slice(0,2),16), g=parseInt(s.slice(2,4),16), b=parseInt(s.slice(4,6),16); return {r,g,b}; }
+    function rgbToHsl(r,g,b){ r/=255; g/=255; b/=255; const max=Math.max(r,g,b), min=Math.min(r,g,b); let h=0,s=0,l=(max+min)/2; if(max!==min){ const d=max-min; s=l>0.5? d/(2-max-min) : d/(max+min); switch(max){ case r: h=(g-b)/d + (g<b?6:0); break; case g: h=(b-r)/d + 2; break; case b: h=(r-g)/d + 4; break; } h*=60; } s*=100; l*=100; return { h, s, l }; }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function lerpHue(a,b,t){ let d=((b-a+540)%360)-180; return (a + d*t + 360)%360; }
+    function hslToCss(hsl){ return `hsl(${Math.round(hsl.h)} ${Math.round(hsl.s)}% ${Math.round(hsl.l)}%)`; }
+    function cssToHsl(css){ try{ if(!css) return {h:200,s:70,l:55}; if(css.startsWith('#')){ const {r,g,b}=hexToRgb(css); return rgbToHsl(r,g,b); } const m=/hsl\(([^\)]+)\)/i.exec(css); if(m){ const parts=m[1].trim().split(/\s+/); const h=parseFloat(parts[0]); const s=parseFloat(parts[1]); const l=parseFloat(parts[2]); return {h,s,l}; } return {h:200,s:70,l:55}; }catch(_){ return {h:200,s:70,l:55}; } }
+    function updateGradPreview(stops){ if(!gradPreview) return; const stopsCss = stops.map(s=> `${s.color} ${s.pos}%`).join(', '); gradPreview.style.background = `linear-gradient(90deg, ${stopsCss})`; }
+    function renderGradHandles(stops){ if(!gradPreview) return; // remove existing handles
+      Array.from(gradPreview.querySelectorAll('.grad-handle')).forEach(n=> n.remove());
+      const rect = gradPreview.getBoundingClientRect();
+      const makeHandle = (stop)=>{
+        const h = document.createElement('div'); h.className='grad-handle'; h.setAttribute('role','slider'); h.setAttribute('aria-valuemin','0'); h.setAttribute('aria-valuemax','100'); h.setAttribute('aria-valuenow', String(Math.round(stop.pos)));
+        h.style.position='absolute'; h.style.left = `calc(${stop.pos}% - 6px)`; h.style.top='-4px'; h.style.width='12px'; h.style.height='22px'; h.style.border='1px solid #334155'; h.style.borderRadius='3px'; h.style.background= stop.color || '#22c55e'; h.style.boxShadow='0 1px 3px rgba(0,0,0,.4)'; h.style.cursor='ew-resize';
+        const onMove = (e)=>{ const r = gradPreview.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const pct = Math.max(0, Math.min(100, (x / Math.max(1,r.width))*100)); stop.pos = Math.round(pct); h.style.left = `calc(${stop.pos}% - 6px)`; h.setAttribute('aria-valuenow', String(Math.round(stop.pos))); renderGradStops(gradientStops); renderGradHandles(gradientStops); updateGradPreview(gradientStops); };
+        const up = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', up); window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', up); };
+        h.addEventListener('mousedown', (e)=>{ e.preventDefault(); window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', up); });
+        h.addEventListener('touchstart', (e)=>{ e.preventDefault(); window.addEventListener('touchmove', onMove, { passive:false }); window.addEventListener('touchend', up); }, { passive:false });
+        gradPreview.appendChild(h);
+      };
+      const sorted=[...stops].sort((a,b)=> a.pos-b.pos); sorted.forEach(makeHandle);
+    }
+    function renderGradStops(stops){ if(!gradStopsEl) return; gradStopsEl.innerHTML=''; const sorted=[...stops].sort((a,b)=> a.pos-b.pos); sorted.forEach((stop, idx)=>{ const row=document.createElement('div'); row.className='row'; row.style.gap='8px'; row.style.alignItems='center'; const color=document.createElement('input'); color.type='color'; color.value = (stop.color || '#22c55e'); const pos=document.createElement('input'); pos.type='number'; pos.min='0'; pos.max='100'; pos.step='1'; pos.value=String(Math.round(stop.pos)); pos.style.width='70px'; const rm=document.createElement('button'); rm.className='secondary'; rm.textContent='Remove'; rm.addEventListener('click', ()=>{ const i=stops.indexOf(stop); if(i> -1 && stops.length>2){ stops.splice(i,1); renderGradStops(stops); updateGradPreview(stops); renderGradHandles(stops); } }); color.addEventListener('input', ()=>{ stop.color = color.value; updateGradPreview(stops); renderGradHandles(stops); }); pos.addEventListener('input', ()=>{ let v=Number(pos.value); if(!Number.isFinite(v)) v=0; v=Math.max(0, Math.min(100, v)); stop.pos=v; renderGradStops(stops); updateGradPreview(stops); renderGradHandles(stops); }); row.appendChild(color); const lab=document.createElement('span'); lab.className='mono'; lab.textContent='at %'; row.appendChild(pos); row.appendChild(lab); row.appendChild(rm); gradStopsEl.appendChild(row); }); }
+    const gradientStops = [ { color:'#22c55e', pos:0 }, { color:'#0ea5e9', pos:100 } ];
+    function addStop(){ const sorted=[...gradientStops].sort((a,b)=> a.pos-b.pos); let bestGap=-1, ai=0, bi=1; for(let i=0;i<sorted.length-1;i++){ const g=sorted[i+1].pos - sorted[i].pos; if(g>bestGap){ bestGap=g; ai=i; bi=i+1; } } const a=sorted[ai], b=sorted[bi]; const mid = Math.round((a.pos + b.pos)/2); const h1=cssToHsl(a.color), h2=cssToHsl(b.color); const t = (mid - a.pos)/Math.max(1,(b.pos - a.pos)); const h={ h: lerpHue(h1.h,h2.h,t), s: lerp(h1.s,h2.s,t), l: lerp(h1.l,h2.l,t) }; gradientStops.push({ color: hslToCss(h), pos: mid }); renderGradStops(gradientStops); updateGradPreview(gradientStops); }
+    function applyGradient(){ if(!sites||!sites.length) return; const stops=[...gradientStops].sort((a,b)=> a.pos-b.pos); const n=sites.length; for(let i=0;i<n;i++){ const t=i/(Math.max(1,n-1))*100; let j=0; while(j<stops.length-1 && t>stops[j+1].pos) j++; const a=stops[Math.max(0,j)], b=stops[Math.min(stops.length-1, j+1)]; const span=Math.max(1, b.pos - a.pos); const tt = Math.max(0, Math.min(1, (t - a.pos)/span)); const h1=cssToHsl(a.color), h2=cssToHsl(b.color); const h={ h: lerpHue(h1.h,h2.h,tt), s: lerp(h1.s,h2.s,tt), l: lerp(h1.l,h2.l,tt) }; sites[i].color = hslToCss(h); }
+      save(); draw(); }
+    if(shuffleBtn){ shuffleBtn.addEventListener('click', shuffleColours); }
+    if(themeBtn){ themeBtn.addEventListener('click', ()=>{ applyTheme(); }); }
+    renderThemeGrid();
+    if(addGradStopBtn){ addGradStopBtn.addEventListener('click', addStop); }
+    if(applyGradBtn){ applyGradBtn.addEventListener('click', applyGradient); }
+    renderGradStops(gradientStops); updateGradPreview(gradientStops); renderGradHandles(gradientStops);
+    function openTheme(){ if(themePanel){ themePanel.style.display='block'; setTimeout(()=>{ try{ themePanel.focus(); }catch(_){/* noop */} },0); } }
+    function closeTheme(){ if(themePanel){ themePanel.style.display='none'; } }
+    if(openThemeBtn){ openThemeBtn.addEventListener('click', (e)=>{ e.preventDefault(); openTheme(); }); }
+    if(themeCloseBtn){ themeCloseBtn.addEventListener('click', closeTheme); }
+    if(themePanel){ themePanel.addEventListener('click', (e)=>{ if(e.target===themePanel) closeTheme(); }); }
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeTheme(); } });
+    sync();
+  })();
+
+  // ------------------------------
   // Title offset controls (desktop/mobile)
   // ------------------------------
   
@@ -1545,6 +1702,9 @@ Processing:<br>
           e.preventDefault();
           const next = (weatherModel && weatherModel !== 'default') ? 'default' : 'ukmo_seamless';
           await applyModelChange(next);
+        } else if(ctrlOrMeta && e.shiftKey && (e.key==='H' || e.key==='h')){
+          e.preventDefault();
+          toggleShowClosedOnMap();
         }
       }catch(_){/* noop */}
     });
@@ -1716,5 +1876,5 @@ Processing:<br>
 
   draw();
   loadCatalog();
-  try{ window.PG = window.PG || {}; window.PG._save = save; window.PG._draw = draw; window.PG._fetchSiteWeather = fetchSiteWeather; window.PG._sites = sites; window.PG._setModel = (m)=>{ weatherModel = m; }; }catch(_){/* noop */}
+  try{ window.PG = window.PG || {}; window.PG._save = save; window.PG._draw = draw; window.PG._fetchSiteWeather = fetchSiteWeather; window.PG._sites = sites; window.PG._setModel = (m)=>{ weatherModel = m; }; window.PG._toggleShowClosed = ()=>toggleShowClosedOnMap(); window.PG._blockedIndices = blockedIndices; }catch(_){/* noop */}
 })();

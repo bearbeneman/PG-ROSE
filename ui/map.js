@@ -10,9 +10,20 @@
   }
   function applyMarkerVisual(marker, isSelected){
     try{
-      if(marker && typeof marker.setOpacity==='function') marker.setOpacity(isSelected?1:0.3);
-      if(marker && typeof marker.setIcon==='function'){ const icon = markerIcon(isSelected); if(icon) marker.setIcon(icon); }
-      if(marker && marker._icon){ marker._icon.style.filter = isSelected ? 'brightness(1.2) drop-shadow(0 0 4px #3b82f6)' : 'grayscale(0.5)'; }
+      const key = String(marker && marker.options && marker.options.siteIdx || '');
+      const blocked = !!(window.PG && window.PG._blockedIndices && key!=='' && window.PG._blockedIndices.has(key));
+      if(marker && typeof marker.setOpacity==='function') marker.setOpacity(blocked ? 1 : (isSelected?1:0.3));
+      if(marker && typeof marker.setIcon==='function'){
+        let icon = null;
+        if(blocked && typeof L!=='undefined' && L.divIcon){
+          // Distinct colour for sites already in wind rose
+          icon = L.divIcon({ className: 'site-pin', html: `<div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;border:2px solid #b45309;box-shadow:0 0 0 2px #0003"></div>`, iconSize:[16,16], iconAnchor:[8,8] });
+        } else {
+          icon = markerIcon(isSelected);
+        }
+        if(icon) marker.setIcon(icon);
+      }
+      if(marker && marker._icon){ marker._icon.style.filter = blocked ? 'none' : (isSelected ? 'brightness(1.2) drop-shadow(0 0 4px #3b82f6)' : 'grayscale(0.5)'); }
     }catch(_){/* noop */}
   }
   function updateMapSelectionUI(selectedCount){
@@ -45,6 +56,8 @@
         const isWithin = distance <= radiusMeters;
         const key = String(layer.options.siteIdx ?? '');
         if(key !== ''){
+          const blocked = !!(window.PG && window.PG._blockedIndices && window.PG._blockedIndices.has(key));
+          if(blocked){ selectedIds.delete(key); if(typeof applyVisual==='function') applyVisual(layer, false); return; }
           const manuallyOn = manualSelected.has(key);
           const manuallyOff = manualDeselected.has(key);
           if(!manuallyOff && (manuallyOn || isWithin)) selectedIds.add(key);
@@ -101,6 +114,7 @@
     if(!polygon || !markerLayer) return; let inside = 0;
     markerLayer.eachLayer(layer => {
       if(!(layer instanceof L.Marker)) return; const key = String(layer.options.siteIdx ?? ''); if(key==='') return; const latlng = layer.getLatLng(); const within = isLatLngInsidePolygon(latlng, polygon);
+      const blocked = !!(window.PG && window.PG._blockedIndices && window.PG._blockedIndices.has(key)); if(blocked){ selectedIds.delete(key); applyMarkerVisual(layer, false); return; }
       const manuallyOn = manualSelected.has(key); const manuallyOff = manualDeselected.has(key);
       if(!manuallyOff && (manuallyOn || within)) selectedIds.add(key); else if(manuallyOff || (!manuallyOn && !within)) selectedIds.delete(key);
       applyMarkerVisual(layer, selectedIds.has(key)); if(selectedIds.has(key)) inside++;

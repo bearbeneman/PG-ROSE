@@ -156,11 +156,35 @@
     const cfg = window.PG.config||{};
     const cx = ctx.cx ?? (cfg.center?cfg.center.x:430);
     const cy = ctx.cy ?? (cfg.center?cfg.center.y:430);
-    const padDeg = ctx.padDeg ?? 0.8;
+    const padDeg = ctx.padDeg ?? 0.8; // legacy; kept for API compatibility
+    const gapPx = Math.max(0, ctx.padPx ?? 4); // desired constant gap between segments in pixels (narrower default)
+    const gapBias = Number.isFinite(ctx.padBias) ? ctx.padBias : 1.0; // keep gap centered around spokes
     const DIRS = ctx.DIRS;
     const polar = (r,deg)=> (window.PG.svg && window.PG.svg.polarToXY) ? window.PG.svg.polarToXY(cx,cy,r,deg) : (function(){ const t=(deg-90)*Math.PI/180; return [cx + r*Math.cos(t), cy + r*Math.sin(t)]; })();
     const annular = (r0,r1,a0,span)=> (window.PG.svg && window.PG.svg.annularSectorPath) ? window.PG.svg.annularSectorPath(cx,cy,r0,r1,a0,span) : '';
+    // Build an annular sector where inner/outer edges are trimmed so the visible gap is constant in pixels
+    const annularSkew = (r0, r1, a0, span)=>{
+      const toDeg = 180/Math.PI;
+      const padInner = (r0>0 && gapPx>0) ? (gapPx*0.5 / r0) * toDeg * gapBias : 0;
+      const padOuter = (r1>0 && gapPx>0) ? (gapPx*0.5 / r1) * toDeg : 0;
+      const a0o = clampDeg(a0 + padOuter);
+      const a1o = clampDeg(a0 + Math.max(0, span - padOuter*2));
+      const a0i = clampDeg(a0 + (span<=0?0:padInner));
+      const a1i = clampDeg(a0 + Math.max(0, span - padInner*2));
+      const largeOuter = ((a1o - a0o + 360) % 360) > 180 ? 1 : 0;
+      const largeInner = ((a1i - a0i + 360) % 360) > 180 ? 1 : 0;
+      const os = polar(r1, a0o); const oe = polar(r1, a1o);
+      const ie = polar(r0, a1i); const is = polar(r0, a0i);
+      return [
+        `M ${os[0]} ${os[1]}`,
+        `A ${r1} ${r1} 0 ${largeOuter} 1 ${oe[0]} ${oe[1]}`,
+        `L ${ie[0]} ${ie[1]}`,
+        `A ${r0} ${r0} 0 ${largeInner} 0 ${is[0]} ${is[1]}`,
+        'Z'
+      ].join(' ');
+    };
     const arcText = (r,a0,span,rev)=> (window.PG.svg && window.PG.svg.arcTextPathD) ? window.PG.svg.arcTextPathD(cx,cy,r,a0,span,!!rev) : '';
+    const rot = Number.isFinite(ctx.globalRotateDeg) ? ctx.globalRotateDeg : 0;
     const clampDeg = (window.PG.layout && window.PG.layout.clampDeg) || (a=>{ a%=360; if(a<0) a+=360; return a; });
     const overlaps = (a,b)=> (window.PG.layout && window.PG.layout.overlaps) ? window.PG.layout.overlaps(a,b) : false;
     const overlapsOpen = (a,b)=> (window.PG.layout && window.PG.layout.overlapsOpen) ? window.PG.layout.overlapsOpen(a,b) : false;
@@ -189,20 +213,22 @@
       let r1 = r0 + layout.width;
       if(ctx.expandIsolatedSegments){ const anyAbove = unionArcs.some(v=> v.ring > u.ring && overlapsOpen(v, u)); if(!anyAbove){ r1 = layout.outer; } }
       const hasOkOnly = okOnlyArcs.some(k=> k.siteId===u.siteId && overlaps(k,u));
-      const aStart = clampDeg(u.startDeg + padDeg);
-      const aSpan  = Math.max(0, u.spanDeg - padDeg*2);
+      const aStart = clampDeg(u.startDeg + rot + (gapPx>0 ? (gapPx*0.5 / Math.max(1, (r0 + r1)/2)) * (180/Math.PI) : padDeg));
+      const aSpan  = Math.max(0, u.spanDeg - (gapPx>0 ? (gapPx / Math.max(1, (r0 + r1)/2)) * (180/Math.PI) : padDeg*2));
       const base = document.createElementNS('http://www.w3.org/2000/svg','path');
-      base.setAttribute('d', annular(r0, r1, aStart, aSpan));
+      base.setAttribute('d', gapPx>0 ? annularSkew(r0, r1, clampDeg(u.startDeg + rot), u.spanDeg) : annular(r0, r1, aStart, aSpan));
       base.setAttribute('fill', hasOkOnly ? (ctx.darkerOf? ctx.darkerOf(u.color) : u.color) : u.color);
       base.setAttribute('fill-opacity','.28');
       base.setAttribute('stroke', hasOkOnly ? (ctx.darkerOf? ctx.darkerOf(u.color) : u.color) : u.color);
       base.setAttribute('stroke-width','2');
-      base.setAttribute('stroke-linejoin','round');
+      base.setAttribute('stroke-linejoin','miter');
+      base.setAttribute('stroke-miterlimit','2.5');
+      base.setAttribute('stroke-linecap','butt');
       base.setAttribute('pointer-events', ctx.reorderMode ? 'auto' : 'none');
       if(ctx.reorderMode){
         base.style.cursor = 'ns-resize';
         let startY = 0; let previewRing = null;
-        const onMove = (e2)=>{ const dy = e2.clientY - startY; const step = Math.round(dy / 28); const desired = u.ring + step; const free = findFreeRing(desired, u); previewRing = free; if(free===null){ removePreview(); return; } const r0p = layout.inner + free * (layout.width + layout.gap); const r1p = r0p + layout.width; if(!previewPath){ previewPath = document.createElementNS('http://www.w3.org/2000/svg','path'); previewPath.setAttribute('fill','none'); previewPath.setAttribute('stroke','#60a5fa'); previewPath.setAttribute('stroke-width','3'); previewPath.setAttribute('stroke-dasharray','6 6'); svg.appendChild(previewPath); } previewPath.setAttribute('d', annular(r0p, r1p, u.startDeg, u.spanDeg)); };
+        const onMove = (e2)=>{ const dy = e2.clientY - startY; const step = Math.round(dy / 28); const desired = u.ring + step; const free = findFreeRing(desired, u); previewRing = free; if(free===null){ removePreview(); return; } const r0p = layout.inner + free * (layout.width + layout.gap); const r1p = r0p + layout.width; if(!previewPath){ previewPath = document.createElementNS('http://www.w3.org/2000/svg','path'); previewPath.setAttribute('fill','none'); previewPath.setAttribute('stroke','#60a5fa'); previewPath.setAttribute('stroke-width','3'); previewPath.setAttribute('stroke-dasharray','6 6'); svg.appendChild(previewPath); } previewPath.setAttribute('d', annular(r0p, r1p, clampDeg(u.startDeg + rot), u.spanDeg)); };
         const onUp = (e2)=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); try{ document.body.style.userSelect = ''; }catch(_){/* noop */} removePreview(); if(previewRing!==null && previewRing!==u.ring){ ctx.manualRingTargets[u.siteId] = previewRing; if(ctx.save) ctx.save(); if(ctx.redraw) ctx.redraw(); } };
         base.addEventListener('mousedown', (ev)=>{ ev.preventDefault(); try{ document.body.style.userSelect = 'none'; }catch(_){/* noop */} startY = ev.clientY; window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); });
       }
@@ -211,17 +237,18 @@
 
       // GOOD overlays
       const goods = ctx.goodArcs.filter(g=> g.siteId===u.siteId && overlaps(g,u));
-      for(const g of goods){ const gs = clampDeg(g.startDeg + padDeg); const gl = Math.max(0, g.spanDeg - padDeg*2); const pg = document.createElementNS('http://www.w3.org/2000/svg','path'); pg.setAttribute('d', annular(r0, r1, gs, gl)); pg.setAttribute('fill', g.color); pg.setAttribute('fill-opacity','.35'); pg.setAttribute('stroke', g.color); pg.setAttribute('stroke-width','2'); pg.setAttribute('stroke-linejoin','round'); if(ctx.reorderMode){ pg.style.pointerEvents = 'none'; } else if(ctx.showTip){ pg.addEventListener('mouseenter', ()=>{ let label=`${g.site} · GOOD`; try{ const siteObj=ctx.nameToSite[g.site]; const w = siteObj ? ctx.windForSelection(siteObj) : null; if(w){ const idx=Math.round(clampDeg(w.dirDeg)/((window.PG.layout&&window.PG.layout.SECTOR_DEG)||22.5)) % DIRS.length; label += ` · ${ctx.formatSpeed(w.speedKph)} · ${DIRS[idx]} (${Math.round(w.dirDeg)}°)`; } }catch(_){/* noop */} ctx.showTip(label); }); pg.addEventListener('mouseleave', ctx.hideTip); pg.addEventListener('mousemove', ctx.moveTip); } if(ctx.animateSiteIds && ctx.animateSiteIds.has(g.siteId)) pg.classList.add('seg-fade-in'); svg.appendChild(pg); }
+      for(const g of goods){ const gs = clampDeg(g.startDeg + rot + (gapPx>0 ? 0 : padDeg)); const gl = Math.max(0, g.spanDeg - (gapPx>0 ? 0 : padDeg*2)); const pg = document.createElementNS('http://www.w3.org/2000/svg','path'); pg.setAttribute('d', gapPx>0 ? annularSkew(r0, r1, clampDeg(g.startDeg + rot), g.spanDeg) : annular(r0, r1, gs, gl)); pg.setAttribute('fill', g.color); pg.setAttribute('fill-opacity','.35'); pg.setAttribute('stroke', g.color); pg.setAttribute('stroke-width','2'); pg.setAttribute('stroke-linejoin','miter'); pg.setAttribute('stroke-miterlimit','2.5'); pg.setAttribute('stroke-linecap','butt'); if(ctx.reorderMode){ pg.style.pointerEvents = 'none'; } else if(ctx.showTip){ pg.addEventListener('mouseenter', ()=>{ let label=`${g.site} · GOOD`; try{ const siteObj=ctx.nameToSite[g.site]; const w = siteObj ? ctx.windForSelection(siteObj) : null; if(w){ const idx=Math.round(clampDeg(w.dirDeg)/((window.PG.layout&&window.PG.layout.SECTOR_DEG)||22.5)) % DIRS.length; label += ` · ${ctx.formatSpeed(w.speedKph)} · ${DIRS[idx]} (${Math.round(w.dirDeg)}°)`; } }catch(_){/* noop */} ctx.showTip(label); }); pg.addEventListener('mouseleave', ctx.hideTip); pg.addEventListener('mousemove', ctx.moveTip); } if(ctx.animateSiteIds && ctx.animateSiteIds.has(g.siteId)) pg.classList.add('seg-fade-in'); svg.appendChild(pg); }
 
       // OK-only overlays (invisible hit area for tooltip)
       const oks = ctx.okOnlyArcs.filter(k=> k.siteId===u.siteId && overlaps(k,u));
-      for(const k of oks){ const ks = clampDeg(k.startDeg + padDeg); const kl = Math.max(0, k.spanDeg - padDeg*2); const pk = document.createElementNS('http://www.w3.org/2000/svg','path'); pk.setAttribute('d', annular(r0, r1, ks, kl)); pk.setAttribute('fill', '#000'); pk.setAttribute('fill-opacity','0.001'); pk.setAttribute('stroke','none'); if(ctx.reorderMode){ pk.style.pointerEvents = 'none'; } else if(ctx.showTip){ pk.addEventListener('mouseenter', ()=>{ let label=`${k.site} · OK`; try{ const siteObj=ctx.nameToSite[k.site]; const w = siteObj ? ctx.windForSelection(siteObj) : null; if(w){ const idx=Math.round(clampDeg(w.dirDeg)/((window.PG.layout&&window.PG.layout.SECTOR_DEG)||22.5)) % DIRS.length; label += ` · ${ctx.formatSpeed(w.speedKph)} · ${DIRS[idx]} (${Math.round(w.dirDeg)}°)`; } }catch(_){/* noop */} ctx.showTip(label); }); pk.addEventListener('mouseleave', ctx.hideTip); pk.addEventListener('mousemove', ctx.moveTip); } if(ctx.animateSiteIds && ctx.animateSiteIds.has(k.siteId)) pk.classList.add('seg-fade-in'); svg.appendChild(pk); }
+      for(const k of oks){ const ks = clampDeg(k.startDeg + rot + (gapPx>0 ? 0 : padDeg)); const kl = Math.max(0, k.spanDeg - (gapPx>0 ? 0 : padDeg*2)); const pk = document.createElementNS('http://www.w3.org/2000/svg','path'); pk.setAttribute('d', gapPx>0 ? annularSkew(r0, r1, clampDeg(k.startDeg + rot), k.spanDeg) : annular(r0, r1, ks, kl)); pk.setAttribute('fill', '#000'); pk.setAttribute('fill-opacity','0.001'); pk.setAttribute('stroke','none'); if(ctx.reorderMode){ pk.style.pointerEvents = 'none'; } else if(ctx.showTip){ pk.addEventListener('mouseenter', ()=>{ let label=`${k.site} · OK`; try{ const siteObj=ctx.nameToSite[k.site]; const w = siteObj ? ctx.windForSelection(siteObj) : null; if(w){ const idx=Math.round(clampDeg(w.dirDeg)/((window.PG.layout&&window.PG.layout.SECTOR_DEG)||22.5)) % DIRS.length; label += ` · ${ctx.formatSpeed(w.speedKph)} · ${DIRS[idx]} (${Math.round(w.dirDeg)}°)`; } }catch(_){/* noop */} ctx.showTip(label); }); pk.addEventListener('mouseleave', ctx.hideTip); pk.addEventListener('mousemove', ctx.moveTip); } if(ctx.animateSiteIds && ctx.animateSiteIds.has(k.siteId)) pk.classList.add('seg-fade-in'); svg.appendChild(pk); }
 
       // Curved label per union arc
       let rText = ctx.labelRadius(r0, r1);
       if(ctx.autoCenterLabels){ rText = r0 + (r1 - r0) * 0.5; }
-      const spanForText = Math.max(u.spanDeg - padDeg*2, 0);
-      if(spanForText > 4){ const textPathId = `tpath-${u.id}`; const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('fill','#ffffff'); text.setAttribute('font-weight','700'); let rForText = rText; const arcLen = (Math.PI/180) * spanForText * rForText; const est = arcLen / Math.max(u.site.length * 0.62, 4); const bandHeight = (function(){ const r0b = layout.inner + u.ring * (layout.width + layout.gap); let r1b = r0b + layout.width; if(ctx.expandIsolatedSegments){ const anyAbove = unionArcs.some(v=> v.ring>u.ring && overlapsOpen(v,u)); if(!anyAbove){ r1b = layout.outer; } } return r1b - r0b; })(); const maxByHeight = Math.max(8, (bandHeight - 4) * 0.78); const size = Math.max(8, Math.min(est, maxByHeight, ctx.LABEL_MAX_PX||28)); text.setAttribute('font-size', size.toFixed(1)); text.style.pointerEvents = ctx.reorderMode ? 'none' : 'visiblePainted'; if(ctx.autoCenterLabels){ const baselineFudge = size * 0.30; rForText = r0 + (r1 - r0) * 0.5 - baselineFudge; } const path = document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('id', textPathId); path.setAttribute('d', arcText(rForText, aStart, spanForText)); path.setAttribute('fill','none'); (svg.querySelector('defs')||svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg','defs'))).appendChild(path); const tp = document.createElementNS('http://www.w3.org/2000/svg','textPath'); tp.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', `#${textPathId}`); tp.setAttribute('href', `#${textPathId}`); tp.textContent = u.site; text.appendChild(tp); svg.appendChild(text); try{ const pathNode = svg.querySelector(`#${textPathId}`); if(pathNode && pathNode.getTotalLength){ const pathLen = pathNode.getTotalLength(); const textLen = text.getComputedTextLength(); const offset = Math.max(0, (pathLen - textLen)/2); tp.setAttribute('startOffset', String(offset)); } }catch(_){/* noop */} }
+      const padForTextDeg = (gapPx>0 && rText>0) ? (gapPx / rText) * (180/Math.PI) * 0.5 : padDeg;
+      const spanForText = Math.max(u.spanDeg - padForTextDeg*2, 0);
+      if(spanForText > 4){ const textPathId = `tpath-${u.id}`; const text = document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('fill','#ffffff'); text.setAttribute('font-weight','700'); let rForText = rText; const arcLen = (Math.PI/180) * spanForText * rForText; const est = arcLen / Math.max(u.site.length * 0.62, 4); const bandHeight = (function(){ const r0b = layout.inner + u.ring * (layout.width + layout.gap); let r1b = r0b + layout.width; if(ctx.expandIsolatedSegments){ const anyAbove = unionArcs.some(v=> v.ring>u.ring && overlapsOpen(v,u)); if(!anyAbove){ r1b = layout.outer; } } return r1b - r0b; })(); const maxByHeight = Math.max(8, (bandHeight - 4) * 0.78); const size = Math.max(8, Math.min(est, maxByHeight, ctx.LABEL_MAX_PX||28)); text.setAttribute('font-size', size.toFixed(1)); text.style.pointerEvents = ctx.reorderMode ? 'none' : 'visiblePainted'; if(ctx.autoCenterLabels){ const baselineFudge = size * 0.30; rForText = r0 + (r1 - r0) * 0.5 - baselineFudge; } const path = document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('id', textPathId); path.setAttribute('d', arcText(rForText, clampDeg(u.startDeg + rot + padForTextDeg), spanForText)); path.setAttribute('fill','none'); (svg.querySelector('defs')||svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg','defs'))).appendChild(path); const tp = document.createElementNS('http://www.w3.org/2000/svg','textPath'); tp.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', `#${textPathId}`); tp.setAttribute('href', `#${textPathId}`); tp.textContent = u.site; text.appendChild(tp); svg.appendChild(text); try{ const pathNode = svg.querySelector(`#${textPathId}`); if(pathNode && pathNode.getTotalLength){ const pathLen = pathNode.getTotalLength(); const textLen = text.getComputedTextLength(); const offset = Math.max(0, (pathLen - textLen)/2); tp.setAttribute('startOffset', String(offset)); } }catch(_){/* noop */} }
     }
 
     // Per-site arrows (only when live wind is on)

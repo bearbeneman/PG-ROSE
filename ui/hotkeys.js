@@ -21,6 +21,9 @@
             modelNameFor: (window.PG && window.PG.model && window.PG.model.modelNameFor) || null
           });
         }
+      } else if(ctrlOrMeta && e.shiftKey && (e.key==='H' || e.key==='h')){
+        e.preventDefault();
+        try{ if(window.PG && typeof window.PG._toggleShowClosed==='function'){ window.PG._toggleShowClosed(); } }catch(_){/* noop */}
       }
     }catch(_){/* noop */}
   });
