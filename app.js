@@ -106,6 +106,7 @@
   let manualRingTargets = {};
   let lastAssignedRings = {};
   let reorderMode = false;
+  let currentThemeName = null; // for embed code
   // Segment visual controls (do not affect wind logic)
   let GAP_PX = 4.6;          // pixel gap between segments at any radius (baked-in)
   let GAP_DEG = 0;         // additional angular trim per side (deg)
@@ -662,13 +663,25 @@
     const sitesParam = 'sites=' + encodeURIComponent(list);
     return base + '#' + titleParam + '&' + sitesParam;
   }
-  function buildEmbedUrl(){
+  function flagsString(){ try{
+    const parts=[];
+    parts.push('reorder=' + (reorderMode? '1':'0'));
+    parts.push('expand=' + (expandIsolatedSegments? '1':'0'));
+    parts.push('longnames=' + (longNamesOut? '1':'0'));
+    parts.push('ring=' + encodeURIComponent(ringOrder||'short'));
+    try{ const on = !!(showDegrees && showDegrees.checked); parts.push('showdeg=' + (on? '1':'0')); }catch(_){ parts.push('showdeg=1'); }
+    if(currentThemeName){ parts.push('theme=' + encodeURIComponent(currentThemeName)); }
+    return parts.join('&');
+  }catch(_){ return ''; } }
+
+  function buildEmbedUrl(includeFlags){
     const path = location.pathname.replace(/[^/]*$/, 'embed.html');
     const base = location.origin + path + location.search;
     const titleParam = 'title=' + encodeURIComponent(windRoseTitleText||'');
     const list = (sites||[]).map(s=> s.name).join(',');
     const sitesParam = 'sites=' + encodeURIComponent(list);
-    return base + '#' + titleParam + '&' + sitesParam;
+    const extra = includeFlags ? ('&' + flagsString()) : '';
+    return base + '#' + titleParam + '&' + sitesParam + extra;
   }
   function parseHash(){
     const h = (location.hash||'').replace(/^#/, '');
@@ -1280,8 +1293,8 @@
   if(copyPngBtn){ copyPngBtn.addEventListener('click', async ()=>{ if(!sites.length){ alert('Add some launch sites before exporting.'); return; } try{ copyPngBtn.disabled = true; await window.PG.export.copyRosePNG({ svg, legendEl }); }catch(err){ console.error('PNG export failed:', err); alert('Failed to export PNG. Please try again.'); } finally{ copyPngBtn.disabled = false; } }); }
   if(embedBtn){ embedBtn.addEventListener('click', async ()=>{
     try{
-      const url = buildEmbedUrl();
-      const snippet = `<iframe src="${url}" width="640" height="640" style="border:0; max-width:100%; background:transparent" loading="lazy" referrerpolicy="no-referrer"></iframe>`;
+      const url = buildEmbedUrl(true);
+      const snippet = `<iframe src="${url}" width="640" height="640" style="border:0; max-width:100%; background:transparent; border-radius:32px; overflow:hidden" loading="lazy" referrerpolicy="no-referrer"></iframe>`;
       if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(snippet); showModelToast('Embed code copied'); }
       else { prompt('Copy embed code:', snippet); }
     }catch(err){ console.warn('embed copy failed', err); }
@@ -1562,7 +1575,7 @@
       'mono blue':[205,205,205,205,205,205]
     };
     const hues = themes[key]; if(!hues) return false; const hsl=(h)=>`hsl(${h} 70% 55%)`;
-    (sites||[]).forEach((s,i)=>{ s.color = hsl(hues[i%hues.length]); }); save(); draw(); return true;
+    (sites||[]).forEach((s,i)=>{ s.color = hsl(hues[i%hues.length]); }); currentThemeName = String(name); save(); draw(); return true;
   }catch(_){ return false; } }
   (function initAdvancedButtons(){
     const reorderBtn = document.getElementById('reorderBtn');
@@ -1589,7 +1602,7 @@
     if(longSegBtn){ longSegBtn.addEventListener('click', ()=>{ ringOrder = (ringOrder==='long') ? 'short' : 'long'; save(); draw(); sync(); }); }
     if(showDegBtn){ showDegBtn.addEventListener('click', ()=>{ const ov=document.getElementById('showDegrees'); if(ov){ ov.checked = !ov.checked; } draw(); sync(); }); }
     function hsl(h){ return `hsl(${h} 70% 55%)`; }
-    function shuffleColours(){ const base = Math.random()*360; const phi = 137.508; (sites||[]).forEach((s,i)=>{ s.color = hsl((base + i*phi)%360); }); save(); draw(); }
+    function shuffleColours(){ const base = Math.random()*360; const phi = 137.508; (sites||[]).forEach((s,i)=>{ s.color = hsl((base + i*phi)%360); }); currentThemeName=null; save(); draw(); }
     let themeIdx = 0; const themes = [
       { name:'Ocean', hues:[200, 210, 190, 220, 180, 205] },
       { name:'Sunset', hues:[15, 340, 10, 30, 5, 25] },
@@ -1600,7 +1613,7 @@
       { name:'Cool', hues:[185, 205, 225, 245, 265, 285] },
       { name:'Mono Blue', hues:[205, 205, 205, 205, 205, 205] }
     ];
-    function applyThemeByIndex(idx){ const t = themes[idx % themes.length]; (sites||[]).forEach((s,i)=>{ s.color = hsl(t.hues[i % t.hues.length]); }); if(gradBlock){ gradBlock.style.display='none'; } save(); draw(); }
+    function applyThemeByIndex(idx){ const t = themes[idx % themes.length]; (sites||[]).forEach((s,i)=>{ s.color = hsl(t.hues[i % t.hues.length]); }); currentThemeName=t.name; if(gradBlock){ gradBlock.style.display='none'; } save(); draw(); }
     function applyTheme(){ applyThemeByIndex(themeIdx); themeIdx++; }
     function renderThemeGrid(){ if(!themeGrid) return; themeGrid.innerHTML=''; themes.forEach((t, i)=>{ const btn=document.createElement('button'); btn.className='secondary'; btn.textContent=t.name; btn.style.padding='6px 10px'; btn.style.borderRadius='8px'; const stops=t.hues.map((h,j)=>`hsl(${h} 70% 55%) ${(j/(t.hues.length-1))*100}%`).join(','); btn.style.background=`linear-gradient(90deg, ${stops})`; btn.style.color='#e5e7eb'; btn.style.border='1px solid #1f2937'; btn.style.textAlign='left'; btn.style.width='100%'; btn.addEventListener('click', ()=>{ applyThemeByIndex(i); }); themeGrid.appendChild(btn); }); const custom=document.createElement('button'); custom.className='secondary'; custom.textContent='Custom…'; custom.style.padding='6px 10px'; custom.style.borderRadius='8px'; custom.style.width='100%'; custom.addEventListener('click', ()=>{ if(gradBlock){ gradBlock.style.display='block'; try{ gradBlock.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(_){/* noop */} } }); themeGrid.appendChild(custom); }
     function hexToRgb(hex){ const s=String(hex||'').replace('#',''); if(s.length===3){ const r=parseInt(s[0]+s[0],16), g=parseInt(s[1]+s[1],16), b=parseInt(s[2]+s[2],16); return {r,g,b}; } const r=parseInt(s.slice(0,2),16), g=parseInt(s.slice(2,4),16), b=parseInt(s.slice(4,6),16); return {r,g,b}; }
@@ -1628,7 +1641,7 @@
     const gradientStops = [ { color:'#22c55e', pos:0 }, { color:'#0ea5e9', pos:100 } ];
     function addStop(){ const sorted=[...gradientStops].sort((a,b)=> a.pos-b.pos); let bestGap=-1, ai=0, bi=1; for(let i=0;i<sorted.length-1;i++){ const g=sorted[i+1].pos - sorted[i].pos; if(g>bestGap){ bestGap=g; ai=i; bi=i+1; } } const a=sorted[ai], b=sorted[bi]; const mid = Math.round((a.pos + b.pos)/2); const h1=cssToHsl(a.color), h2=cssToHsl(b.color); const t = (mid - a.pos)/Math.max(1,(b.pos - a.pos)); const h={ h: lerpHue(h1.h,h2.h,t), s: lerp(h1.s,h2.s,t), l: lerp(h1.l,h2.l,t) }; gradientStops.push({ color: hslToCss(h), pos: mid }); renderGradStops(gradientStops); updateGradPreview(gradientStops); }
     function applyGradient(){ if(!sites||!sites.length) return; const stops=[...gradientStops].sort((a,b)=> a.pos-b.pos); const n=sites.length; for(let i=0;i<n;i++){ const t=i/(Math.max(1,n-1))*100; let j=0; while(j<stops.length-1 && t>stops[j+1].pos) j++; const a=stops[Math.max(0,j)], b=stops[Math.min(stops.length-1, j+1)]; const span=Math.max(1, b.pos - a.pos); const tt = Math.max(0, Math.min(1, (t - a.pos)/span)); const h1=cssToHsl(a.color), h2=cssToHsl(b.color); const h={ h: lerpHue(h1.h,h2.h,tt), s: lerp(h1.s,h2.s,tt), l: lerp(h1.l,h2.l,tt) }; sites[i].color = hslToCss(h); }
-      save(); draw(); }
+      currentThemeName=null; save(); draw(); }
     if(shuffleBtn){ shuffleBtn.addEventListener('click', shuffleColours); }
     if(themeBtn){ themeBtn.addEventListener('click', ()=>{ applyTheme(); }); }
     renderThemeGrid();
