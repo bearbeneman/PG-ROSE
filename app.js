@@ -571,7 +571,7 @@
   // ------------------------------
   function formatSpeed(kph){ return window.PG.units.formatSpeed(kph, units); }
 
-  function renderLists(){ return window.PG.legend.renderLists({ sites, selectedDayOffset, DIRS, dayKeyForOffset, sectorBounds, contiguousRanges, clampDeg, formatSpeed }); }
+  function renderLists(){ try{ if(window.PG && window.PG.legend && typeof window.PG.legend.renderLists==='function'){ return window.PG.legend.renderLists({ sites, selectedDayOffset, DIRS, dayKeyForOffset, sectorBounds, contiguousRanges, clampDeg, formatSpeed }); } }catch(_){/* noop */} }
 
   // ------------------------------
   // Catalog: load from data/sites.json and add via dropdown
@@ -1148,7 +1148,7 @@
   // ------------------------------
   // Event handlers
   // ------------------------------
-  addBtn.addEventListener('click', ()=>{
+  if(addBtn){ addBtn.addEventListener('click', ()=>{
     const name = siteName.value.trim();
     if(!name){ alert('Please enter a site name.'); return; }
 
@@ -1172,14 +1172,14 @@
     renderMarkers(false);
     // If a marker is selected on map, attach its lat/lng to site for weather (best-effort)
     // Otherwise weather will not be fetched for manual sites without coordinates
-  });
+  }); }
 
-  clearBtn.addEventListener('click', ()=>{
+  if(clearBtn){ clearBtn.addEventListener('click', ()=>{
     if(!sites.length) return;
     if(confirm('Remove all sites?')){ sites = []; save(); draw(); rebuildBlockedIndexSet(); renderMarkers(false); }
-  });
+  }); }
 
-  siteList.addEventListener('click', (e)=>{
+  if(siteList){ siteList.addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-act="delete"]');
     if(!btn) return;
     const id = btn.getAttribute('data-id');
@@ -1206,7 +1206,7 @@
     rebuildBlockedIndexSet();
     renderMarkers(false);
     updateMapSelectionUI();
-  });
+  }); }
 
   // Auto-add from site list selection
   if(catalogSelect){
