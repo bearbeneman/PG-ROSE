@@ -19,6 +19,9 @@
   function colourFromString(str){ return window.PG.colors.colourFromString(str); }
   function darkerOf(hsl){ return window.PG.colors.darkerOf(hsl); }
 
+  // Embed detection
+  const isEmbed = (function(){ try{ return !!window.PG_EMBED || /embed\.html$/i.test(location.pathname||''); }catch(_){ return false; } })();
+
   // Build UI for sectors (tri‑state OFF→OK→GOOD)
   const dirGrid = document.getElementById('dirGrid');
   function initCompass(){ try{ if(window.PG && window.PG.compass && window.PG.compass.init){ return window.PG.compass.init(dirGrid, { DIRS, SECTOR_DEG }); } }catch(_){/* noop */} }
@@ -65,10 +68,10 @@
   const polyHint = q('#polyHint');
 
 
-  // Tooltip helpers (delegate to module if present)
-  function showTip(text){ return window.PG.tooltip.show(text); }
-  function moveTip(evt){ return window.PG.tooltip.move(evt); }
-  function hideTip(){ return window.PG.tooltip.hide(); }
+  // Tooltip helpers (delegate to module if present; no-op in embed)
+  function showTip(text){ try{ if(isEmbed) return; if(window.PG && window.PG.tooltip && typeof window.PG.tooltip.show==='function'){ return window.PG.tooltip.show(text); } }catch(_){/* noop */} }
+  function moveTip(evt){ try{ if(isEmbed) return; if(window.PG && window.PG.tooltip && typeof window.PG.tooltip.move==='function'){ return window.PG.tooltip.move(evt); } }catch(_){/* noop */} }
+  function hideTip(){ try{ if(isEmbed) return; if(window.PG && window.PG.tooltip && typeof window.PG.tooltip.hide==='function'){ return window.PG.tooltip.hide(); } }catch(_){/* noop */} }
 
   const showDegrees = q('#showDegrees') || {checked:true};
 
@@ -445,7 +448,7 @@
       titleOffsetDesktopPx,
       titleOffsetMobilePx,
       showTip, hideTip, moveTip,
-      onEditTitle: ({ rect, isMobile })=>{
+      onEditTitle: isEmbed ? null : ({ rect, isMobile })=>{
         try{
           const input = document.createElement('input');
           input.type = 'text';

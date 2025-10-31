@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <style>
-    html, body { margin:0; padding:0; background: transparent; }
+    html, body { margin:0; padding:0; background: radial-gradient(1200px 1200px at 15% 10%, #0b1228, #0f172a); color:#e5e7eb; }
     #embedWrap { position: relative; width: 100%; max-width: 100%; }
     #rose { width: 100%; height: auto; display:block; min-height: 400px; }
     /* Hide sidebar/mobile cards if any styles leak in */
@@ -19,6 +19,7 @@
     <svg id="rose" viewBox="0 0 860 860" aria-label="PG Rose embed"></svg>
   </div>
 
+  <script>window.PG_EMBED = true;</script>
   <script src="core/units.js"></script>
   <script src="core/wx-api.js"></script>
   <script src="core/svg-utils.js"></script>
