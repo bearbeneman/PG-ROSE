@@ -440,8 +440,8 @@
     try{ console.log('[PG Rose] draw()', { siteCount: (sites||[]).length }); }catch(_){/* noop */}
     window.PG.rose.drawGuides(svg, {
       cx, cy,
-      guideRadius,
-      coreMargin: CORE_MARGIN,
+      guideRadius: isEmbed ? 410 : guideRadius,
+      coreMargin: isEmbed ? 60 : CORE_MARGIN,
       DIRS,
       showDegrees,
       titleText: windRoseTitleText,

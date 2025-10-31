@@ -7,9 +7,9 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="styles.css" />
   <style>
-    html, body { margin:0; padding:0; background: radial-gradient(1200px 1200px at 15% 10%, #0b1228, #0f172a); color:#e5e7eb; }
-    #embedWrap { position: relative; width: 100%; max-width: 100%; }
-    #rose { width: 100%; height: auto; display:block; min-height: 400px; }
+    html, body { margin:0; padding:0; width:100%; height:100%; background: transparent; color:#e5e7eb; }
+    #embedWrap { position: relative; width: 100%; height: 100%; max-width: 100%; border-radius: 16px; overflow: hidden; background: radial-gradient(1200px 1200px at 15% 10%, #0b1228, #0f172a); border: 1px solid rgba(255,255,255,0.08); }
+    #rose { width: 100%; height: 100%; display:block; }
     /* Hide sidebar/mobile cards if any styles leak in */
     .page, #controls, .legend, .mobile-legend, #topRightActions, #advancedTogglesCard, #mobileWindCard { display:none !important; }
   </style>
