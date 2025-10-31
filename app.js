@@ -1258,8 +1258,8 @@
   (function(){ if(applyShareFromHash()){ try{ draw(); renderWxInfo(); }catch(_){/* noop */} } })();
   window.addEventListener('hashchange', ()=>{ if(applyShareFromHash()){ draw(); renderWxInfo(); } });
 
-  // Re-use the existing var; only attach the listener here
-  showDegrees.addEventListener('change', draw);
+  // Re-use the existing var; only attach the listener here (guard for embed without checkbox)
+  try{ if(showDegrees && typeof showDegrees.addEventListener==='function'){ showDegrees.addEventListener('change', draw); } }catch(_){/* noop */}
   // Advanced toggles card: bind expand/collapse
   (function initAdvancedCard(){
     const btn = document.getElementById('advancedBtn');
