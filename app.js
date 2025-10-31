@@ -434,6 +434,7 @@
   // Empty state renderer moved to ui/rose.js
   function draw(){
     clearSVG();
+    try{ console.log('[PG Rose] draw()', { siteCount: (sites||[]).length }); }catch(_){/* noop */}
     window.PG.rose.drawGuides(svg, {
       cx, cy,
       guideRadius,
@@ -698,6 +699,7 @@
         }
         if(!rec && best.i>=0){ rec = catalogData[best.i]; recIdx = best.i; }
       }
+      try{ console.log('[PG Rose] import name', name, '→ index', recIdx); }catch(_){/* noop */}
       if(rec){ const site = normaliseRecord(rec, recIdx); toAdd.push(site); }
       else { toAdd.push({ id: uid(), name, color: colourFromString(name), good: [], ok: [] }); }
     });
@@ -722,6 +724,7 @@
       let imported = false;
       if(namesParam){
         const names = decodeURIComponent(namesParam).split(',').map(x=>x.trim()).filter(Boolean);
+        try{ console.log('[PG Rose] share hash parsed', { title: windRoseTitleText, names }); }catch(_){/* noop */}
         if(catalogData && catalogData.length){ imported = importSitesByNames(names); }
         else { pendingShareNames = names; imported = true; }
       }
@@ -737,6 +740,7 @@
         if(!titleParam && typeof data.t==='string') windRoseTitleText = data.t;
       }
       if(titleParam!==null) save();
+      try{ console.log('[PG Rose] applyShareFromHash', { imported, pendingShareNames }); }catch(_){/* noop */}
       return imported || titleParam!==null;
     }catch(err){ console.warn('Bad share hash', err); return false; }
   }
@@ -787,6 +791,7 @@
         if(catalogSelect){ catalogSelect.innerHTML = '<option value="">Unavailable on file://</option>'; }
         return;
       }
+      try{ console.log('[PG Rose] loading catalog…'); }catch(_){/* noop */}
       const resp = await fetch('data/sites.json', { cache: 'no-store' });
       if(!resp.ok) throw new Error(String(resp.status));
       const data = await resp.json();
@@ -801,9 +806,11 @@
         importSitesByNames(pendingShareNames);
         pendingShareNames = null;
       }
+      try{ console.log('[PG Rose] catalog loaded', { count: catalogData.length, importedSites: (sites||[]).map(s=>s.name) }); }catch(_){/* noop */}
     }catch(err){
       if(catalogHint) catalogHint.textContent = 'Could not load catalog. Check data/sites.json or use Import JSON.';
       if(catalogSelect){ catalogSelect.innerHTML = '<option value="">Load failed</option>'; }
+      try{ console.warn('[PG Rose] catalog load failed', err); }catch(_){/* noop */}
     }
   }
 
@@ -826,7 +833,7 @@
     }
   }
 
-  function updateRadiusHint(){ window.PG.map.updateRadiusHint(radiusCenter, radiusHint); }
+  function updateRadiusHint(){ try{ if(window.PG && window.PG.map && typeof window.PG.map.updateRadiusHint==='function'){ window.PG.map.updateRadiusHint(radiusCenter, radiusHint); } }catch(err){ try{ console.warn('[PG Rose] updateRadiusHint skipped (no map in this context)', err); }catch(_){/* noop */} } }
 
   function drawRadiusCircle(){
     const radius = parseFloat(radiusInput?.value || radiusKm);
