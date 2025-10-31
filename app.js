@@ -679,7 +679,25 @@
       const exists = sites.some(s=> s.name.toLowerCase()===name.toLowerCase());
       if(exists) return;
       let recIdx = -1; let rec = null;
+      // 1) exact, case-insensitive
       for(let i=0;i<catalogData.length;i++){ const r=catalogData[i]; const nm=nameFromRecord(r,i); if(String(nm).toLowerCase()===name.toLowerCase()){ rec=r; recIdx=i; break; } }
+      // 2) relaxed match: strip non-alphanumerics and compare/contain
+      if(!rec){
+        const norm = (s)=> String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+        const target = norm(name);
+        let best = { i:-1, score: Infinity };
+        for(let i=0;i<catalogData.length;i++){
+          const nm = nameFromRecord(catalogData[i], i);
+          const nn = norm(nm);
+          if(!nn || !target) continue;
+          if(nn===target){ rec=catalogData[i]; recIdx=i; break; }
+          if(nn.includes(target) || target.includes(nn)){
+            const score = Math.abs(nn.length - target.length);
+            if(score < best.score){ best={ i, score }; }
+          }
+        }
+        if(!rec && best.i>=0){ rec = catalogData[best.i]; recIdx = best.i; }
+      }
       if(rec){ const site = normaliseRecord(rec, recIdx); toAdd.push(site); }
       else { toAdd.push({ id: uid(), name, color: colourFromString(name), good: [], ok: [] }); }
     });
