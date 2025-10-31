@@ -34,6 +34,7 @@
   const copyPngBtn = q('#copyPngBtn');
   const printBtn = q('#printBtn');
   const shareBtn = q('#shareBtn');
+  const embedBtn = q('#embedBtn');
   const testBtn = q('#testBtn');
   const siteList = q('#siteList');
   const legendEl = q('#legend');
@@ -656,6 +657,14 @@
     const sitesParam = 'sites=' + encodeURIComponent(list);
     return base + '#' + titleParam + '&' + sitesParam;
   }
+  function buildEmbedUrl(){
+    const path = location.pathname.replace(/[^/]*$/, 'embed.html');
+    const base = location.origin + path + location.search;
+    const titleParam = 'title=' + encodeURIComponent(windRoseTitleText||'');
+    const list = (sites||[]).map(s=> s.name).join(',');
+    const sitesParam = 'sites=' + encodeURIComponent(list);
+    return base + '#' + titleParam + '&' + sitesParam;
+  }
   function parseHash(){
     const h = (location.hash||'').replace(/^#/, '');
     const params = new URLSearchParams(h);
@@ -1226,6 +1235,14 @@
   if(printBtn){ printBtn.addEventListener('click', async ()=>{ try{ await window.PG.export.printRosePDF({ svg, legendEl, titleText: windRoseTitleText, siteCount: sites.length }); }catch(err){ console.warn('print failed', err); } }); }
 
   if(copyPngBtn){ copyPngBtn.addEventListener('click', async ()=>{ if(!sites.length){ alert('Add some launch sites before exporting.'); return; } try{ copyPngBtn.disabled = true; await window.PG.export.copyRosePNG({ svg, legendEl }); }catch(err){ console.error('PNG export failed:', err); alert('Failed to export PNG. Please try again.'); } finally{ copyPngBtn.disabled = false; } }); }
+  if(embedBtn){ embedBtn.addEventListener('click', async ()=>{
+    try{
+      const url = buildEmbedUrl();
+      const snippet = `<iframe src="${url}" width="640" height="640" style="border:0; max-width:100%; background:transparent" loading="lazy" referrerpolicy="no-referrer"></iframe>`;
+      if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(snippet); showModelToast('Embed code copied'); }
+      else { prompt('Copy embed code:', snippet); }
+    }catch(err){ console.warn('embed copy failed', err); }
+  }); }
 
   // import removed
 
