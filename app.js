@@ -656,12 +656,13 @@
   function base64Encode(str){ try{ return btoa(unescape(encodeURIComponent(str))); }catch(_){ return btoa(str); } }
   function base64Decode(str){ try{ return decodeURIComponent(escape(atob(str))); }catch(_){ return atob(str); } }
   function buildSharePayload(){ return { t: windRoseTitleText||'', names: (sites||[]).map(s=> s.name) }; }
-  function buildShareUrl(){
+  function buildShareUrl(includeFlags){
     const base = location.origin + location.pathname + location.search;
     const titleParam = 'title=' + encodeURIComponent(windRoseTitleText||'');
     const list = (sites||[]).map(s=> s.name).join(',');
     const sitesParam = 'sites=' + encodeURIComponent(list);
-    return base + '#' + titleParam + '&' + sitesParam;
+    const extra = includeFlags ? ('&' + flagsString()) : '';
+    return base + '#' + titleParam + '&' + sitesParam + extra;
   }
   function flagsString(){ try{
     const parts=[];
@@ -1304,7 +1305,7 @@
 
   if(shareBtn){ shareBtn.addEventListener('click', async ()=>{
     try{
-      const url = buildShareUrl();
+      const url = buildShareUrl(true);
       if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(url); showModelToast('Share link copied'); }
       else { prompt('Copy link:', url); }
     }catch(err){ console.warn('share copy failed', err); }
