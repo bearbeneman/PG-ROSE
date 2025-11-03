@@ -136,7 +136,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .hour-buttons button { background:#0b1222; color:#e5e7eb; border:1px solid #334155; padding:6px 8px; border-radius:8px; font-weight:700; cursor:pointer; min-width:44px; height:40px; display:inline-flex; align-items:center; justify-content:center; }
 .hour-buttons.compact button { height:34px; padding:4px 6px; min-width:40px; font-size:12px; }
 .hour-buttons button.active { background:#60a5fa; color:#061428; border-color:#60a5fa; }
-.legend .pill { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:#0b1222aa; border:1px solid #1f2937; font-size:12px; }
+.legend .pill { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; background:#0b1222aa; border:1px solid #1f2937; font-size:12px; margin:1px; }
+#legendMobile .pill { margin:1px; }
 .legend .pill .pill-x, .legend-mobile .pill .pill-x { padding:0 6px; height:auto; line-height:1; border-radius:6px; font-size:12px; background: transparent; }
 .quality-pills { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .seg-sample { --seg:#22c55e; width:36px; height:12px; border-radius:4px; border:2px solid var(--seg); display:inline-block; box-shadow: inset 0 0 0 1px #0b122233; }
