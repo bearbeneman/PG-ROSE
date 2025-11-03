@@ -1202,6 +1202,25 @@
     }
   });
 
+  // Global: handle delete requests from legend pills
+  window.addEventListener('rose:deleteSite', (ev)=>{
+    try{
+      const id = ev && ev.detail && ev.detail.id; const nameFromEv = ev && ev.detail && ev.detail.name;
+      const find = id ? sites.find(s=> s.id===id) : sites.find(s=> s.name===nameFromEv);
+      if(!find) return;
+      // Deselect any matching map markers
+      try{
+        const removedName = String(find.name||'').toLowerCase();
+        for(let i=0;i<catalogData.length;i++){
+          const nm = String(nameFromRecord(catalogData[i], i)||'').toLowerCase();
+          if(nm===removedName){ const key=String(i); selectedIds.delete(key); manualSelected.delete(key); manualDeselected.delete(key); break; }
+        }
+      }catch(_){/* noop */}
+      sites = sites.filter(s=> s!==find);
+      save(); draw(); rebuildBlockedIndexSet(); renderMarkers(false); updateMapSelectionUI();
+    }catch(_){/* noop */}
+  });
+
   // ------------------------------
   // Event handlers
   // ------------------------------

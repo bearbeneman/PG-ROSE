@@ -14,6 +14,7 @@
     if(legendPillsHost){ legendPillsHost.innerHTML=''; } else if(legendEl){ legendEl.innerHTML=''; }
     if(legendMobileEl) legendMobileEl.innerHTML='';
     const showSpeed = !!ctx.liveWindOn;
+    const maxNameCh = Math.max(4, ...(sites||[]).map(si=> String(si.name||'').length));
     (sites||[]).forEach(s=>{
       const pill = document.createElement('div'); pill.className='pill';
       let txt = s.name;
@@ -22,9 +23,12 @@
         if(selectedDayOffset>0 && s.weather?.byDay){ const key=dayKeyForOffset(selectedDayOffset); const arr=s.weather.byDay[key]; if(Array.isArray(arr)&&arr.length){ speed = arr.reduce((a,b)=> a + (b.speedKph||0), 0) / arr.length; } }
         if(Number.isFinite(speed)) txt = `${s.name} · ${formatSpeed(speed)}`;
       }
-      pill.innerHTML = `<span class="swatch" style="background:${s.color}"></span><span>${txt}</span>`;
+      pill.style.width = (maxNameCh + 4) + 'ch'; pill.style.display='inline-flex'; pill.style.alignItems='center'; pill.style.justifyContent='space-between';
+      const left = document.createElement('span'); left.innerHTML = `<span class="swatch" style="background:${s.color}"></span><span>${txt}</span>`;
+      const btn = document.createElement('button'); btn.className='pill-x secondary'; btn.setAttribute('aria-label','Remove'); btn.textContent='×'; btn.style.marginLeft='8px'; btn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} });
+      pill.appendChild(left); pill.appendChild(btn);
       (legendPillsHost || legendEl).appendChild(pill);
-      if(legendMobileEl){ const pill2=document.createElement('div'); pill2.className='pill'; pill2.innerHTML=pill.innerHTML; legendMobileEl.appendChild(pill2); }
+      if(legendMobileEl){ const pill2=document.createElement('div'); pill2.className='pill'; pill2.style.width=pill.style.width; pill2.style.display=pill.style.display; pill2.style.alignItems=pill.style.alignItems; pill2.style.justifyContent=pill.style.justifyContent; const l2=left.cloneNode(true); const b2=btn.cloneNode(true); b2.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} }); pill2.appendChild(l2); pill2.appendChild(b2); legendMobileEl.appendChild(pill2); }
     });
     if(siteList){
       siteList.innerHTML='';
