@@ -14,22 +14,37 @@
     if(legendPillsHost){ legendPillsHost.innerHTML=''; } else if(legendEl){ legendEl.innerHTML=''; }
     if(legendMobileEl) legendMobileEl.innerHTML='';
     const showSpeed = !!ctx.liveWindOn;
-    const maxNameCh = Math.max(4, ...(sites||[]).map(si=> String(si.name||'').length));
-    (sites||[]).forEach(s=>{
-      const pill = document.createElement('div'); pill.className='pill';
-      let txt = s.name;
+    // Compute final label strings (include speed if shown) and measure the max width in px
+    const labels = (sites||[]).map(s=>{
+      let t = String(s.name||'');
       if(showSpeed){
         let speed = s.weather?.now?.speedKph;
         if(selectedDayOffset>0 && s.weather?.byDay){ const key=dayKeyForOffset(selectedDayOffset); const arr=s.weather.byDay[key]; if(Array.isArray(arr)&&arr.length){ speed = arr.reduce((a,b)=> a + (b.speedKph||0), 0) / arr.length; } }
-        if(Number.isFinite(speed)) txt = `${s.name} · ${formatSpeed(speed)}`;
+        if(Number.isFinite(speed)) t = `${s.name} · ${formatSpeed(speed)}`;
       }
-      pill.style.width = (maxNameCh + 4) + 'ch'; pill.style.display='inline-flex'; pill.style.alignItems='center'; pill.style.justifyContent='space-between';
+      return t;
+    });
+    let pillWidthPx = 0;
+    if((sites||[]).length){
+      const meas = document.createElement('span');
+      meas.style.position='absolute'; meas.style.visibility='hidden'; meas.style.whiteSpace='nowrap'; meas.style.fontSize='12px';
+      document.body.appendChild(meas);
+      let maxTextPx = 0; for(const t of labels){ meas.textContent = t; maxTextPx = Math.max(maxTextPx, meas.offsetWidth || 0); }
+      document.body.removeChild(meas);
+      // Add space for swatch, paddings, and × button comfortably
+      pillWidthPx = Math.ceil(maxTextPx + 64);
+    }
+    (sites||[]).forEach((s, idx)=>{
+      const pill = document.createElement('div'); pill.className='pill';
+      const txt = labels[idx] || String(s.name||'');
+      if(pillWidthPx>0){ pill.style.width = pillWidthPx + 'px'; }
+      pill.style.display='inline-flex'; pill.style.alignItems='center'; pill.style.justifyContent='space-between'; pill.style.whiteSpace='nowrap';
       try{ if(/^hsl\(/i.test(String(s.color||''))){ pill.style.background = String(s.color).replace(/\)$/,' / 0.18)'); pill.style.borderColor = String(s.color); } }catch(_){/* noop */}
       const left = document.createElement('span'); left.innerHTML = `<span class="swatch" style="background:${s.color}"></span><span>${txt}</span>`;
       const btn = document.createElement('button'); btn.className='pill-x secondary'; btn.setAttribute('aria-label','Remove'); btn.textContent='×'; btn.style.marginLeft='8px'; btn.style.height='auto'; btn.style.lineHeight='1'; btn.style.fontSize='12px'; btn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} });
       pill.appendChild(left); pill.appendChild(btn);
       (legendPillsHost || legendEl).appendChild(pill);
-      if(legendMobileEl){ const pill2=document.createElement('div'); pill2.className='pill'; pill2.style.width=pill.style.width; pill2.style.display=pill.style.display; pill2.style.alignItems=pill.style.alignItems; pill2.style.justifyContent=pill.style.justifyContent; try{ if(pill.style.background) pill2.style.background=pill.style.background; if(pill.style.borderColor) pill2.style.borderColor=pill.style.borderColor; }catch(_){/* noop */} const l2=left.cloneNode(true); const b2=btn.cloneNode(true); b2.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} }); pill2.appendChild(l2); pill2.appendChild(b2); legendMobileEl.appendChild(pill2); }
+      if(legendMobileEl){ const pill2=document.createElement('div'); pill2.className='pill'; pill2.style.width=pill.style.width; pill2.style.display=pill.style.display; pill2.style.alignItems=pill.style.alignItems; pill2.style.justifyContent=pill.style.justifyContent; pill2.style.whiteSpace=pill.style.whiteSpace; try{ if(pill.style.background) pill2.style.background=pill.style.background; if(pill.style.borderColor) pill2.style.borderColor=pill.style.borderColor; }catch(_){/* noop */} const l2=left.cloneNode(true); const b2=btn.cloneNode(true); b2.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} }); pill2.appendChild(l2); pill2.appendChild(b2); legendMobileEl.appendChild(pill2); }
     });
     if(siteList){
       siteList.innerHTML='';
