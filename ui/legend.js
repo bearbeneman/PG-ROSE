@@ -13,11 +13,15 @@
     const siteList = document.getElementById('siteList');
     if(legendPillsHost){ legendPillsHost.innerHTML=''; } else if(legendEl){ legendEl.innerHTML=''; }
     if(legendMobileEl) legendMobileEl.innerHTML='';
+    const showSpeed = !!ctx.liveWindOn;
     (sites||[]).forEach(s=>{
       const pill = document.createElement('div'); pill.className='pill';
-      let speed = s.weather?.now?.speedKph;
-      if(selectedDayOffset>0 && s.weather?.byDay){ const key=dayKeyForOffset(selectedDayOffset); const arr=s.weather.byDay[key]; if(Array.isArray(arr)&&arr.length){ speed = arr.reduce((a,b)=> a + (b.speedKph||0), 0) / arr.length; } }
-      const txt = Number.isFinite(speed) ? `${s.name} · ${formatSpeed(speed)}` : s.name;
+      let txt = s.name;
+      if(showSpeed){
+        let speed = s.weather?.now?.speedKph;
+        if(selectedDayOffset>0 && s.weather?.byDay){ const key=dayKeyForOffset(selectedDayOffset); const arr=s.weather.byDay[key]; if(Array.isArray(arr)&&arr.length){ speed = arr.reduce((a,b)=> a + (b.speedKph||0), 0) / arr.length; } }
+        if(Number.isFinite(speed)) txt = `${s.name} · ${formatSpeed(speed)}`;
+      }
       pill.innerHTML = `<span class="swatch" style="background:${s.color}"></span><span>${txt}</span>`;
       (legendPillsHost || legendEl).appendChild(pill);
       if(legendMobileEl){ const pill2=document.createElement('div'); pill2.className='pill'; pill2.innerHTML=pill.innerHTML; legendMobileEl.appendChild(pill2); }

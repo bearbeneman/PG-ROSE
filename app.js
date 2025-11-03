@@ -577,7 +577,7 @@
   // ------------------------------
   function formatSpeed(kph){ return window.PG.units.formatSpeed(kph, units); }
 
-  function renderLists(){ try{ if(window.PG && window.PG.legend && typeof window.PG.legend.renderLists==='function'){ return window.PG.legend.renderLists({ sites, selectedDayOffset, DIRS, dayKeyForOffset, sectorBounds, contiguousRanges, clampDeg, formatSpeed }); } }catch(_){/* noop */} }
+  function renderLists(){ try{ if(window.PG && window.PG.legend && typeof window.PG.legend.renderLists==='function'){ return window.PG.legend.renderLists({ sites, selectedDayOffset, DIRS, dayKeyForOffset, sectorBounds, contiguousRanges, clampDeg, formatSpeed, liveWindOn }); } }catch(_){/* noop */} }
 
   // ------------------------------
   // Catalog: load from data/sites.json and add via dropdown
