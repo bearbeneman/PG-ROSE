@@ -1,0 +1,14 @@
+{
+  "name": "Wind Rose",
+  "short_name": "Wind Rose",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#061428",
+  "background_color": "#061428",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
+
+

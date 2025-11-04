@@ -1985,4 +1985,20 @@ Processing:<br>
   draw();
   loadCatalog();
   try{ window.PG = window.PG || {}; window.PG._save = save; window.PG._draw = draw; window.PG._fetchSiteWeather = fetchSiteWeather; window.PG._sites = sites; window.PG._setModel = (m)=>{ weatherModel = m; }; window.PG._toggleShowClosed = ()=>toggleShowClosedOnMap(); window.PG._blockedIndices = blockedIndices; }catch(_){/* noop */}
+
+  // ------------------------------
+  // PWA: register service worker & install prompt (Android)
+  // ------------------------------
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+    }
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e)=>{
+      e.preventDefault(); deferredPrompt = e;
+      const btn = document.getElementById('installBtn');
+      if(btn){ btn.style.display='inline-flex'; btn.onclick = async()=>{ try{ btn.style.display='none'; deferredPrompt?.prompt(); await deferredPrompt?.userChoice; }finally{ deferredPrompt=null; } }; }
+    });
+    window.addEventListener('appinstalled', ()=>{ try{ const btn=document.getElementById('installBtn'); if(btn) btn.style.display='none'; }catch(_){/* noop */} });
+  }catch(_){/* noop */}
 })();
