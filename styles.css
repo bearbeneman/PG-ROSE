@@ -104,7 +104,20 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Mobile override: ensure the rose is not too small nor too tall */
 @media (max-width: 700px) {
-  #rose { min-height: 600px !important; max-height: calc(100vh - 170px); }
+  /* Use full viewport width on mobile: remove side padding */
+  .page { padding-left: 0; padding-right: 0; }
+  /* Enlarge and center the rose on mobile */
+  .canvas-wrap { 
+    display: grid; 
+    place-items: center; 
+    overflow: hidden; /* prevent horizontal scroll while scaled */
+  }
+  #rose { 
+    min-height: 600px !important; 
+    max-height: calc(100vh - 170px);
+    transform: scale(1.2);
+    transform-origin: center center;
+  }
 }
 
 /* Two-row layout for wind controls when space is tight on desktop */
