@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <clipPath id="ball"><circle cx="64" cy="64" r="58"/></clipPath>
+  </defs>
+  <!-- Solid circle for mask -->
+  <circle cx="64" cy="64" r="58" fill="#000"/>
+  <!-- Wind lines (as strokes, contribute to mask) -->
+  <g clip-path="url(#ball)" fill="none" stroke="#000" stroke-linecap="round">
+    <path d="M8 48 C 40 40, 88 58, 120 46" stroke-width="8"/>
+    <path d="M8 68 C 48 78, 86 60, 120 76" stroke-width="8"/>
+    <path d="M8 88 C 52 96, 88 86, 120 92" stroke-width="8"/>
+  </g>
+</svg>
+

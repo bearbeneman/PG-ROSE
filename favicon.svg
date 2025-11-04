@@ -1,14 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <radialGradient id="grad" cx="50%" cy="50%" r="75%">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="35%" stop-color="#3b82f6"/>
-      <stop offset="65%" stop-color="#06b6d4"/>
-      <stop offset="85%" stop-color="#22c55e"/>
-      <stop offset="100%" stop-color="#f59e0b"/>
+    <clipPath id="ball">
+      <circle cx="64" cy="64" r="58"/>
+    </clipPath>
+    <!-- gentle highlight for a spherical feel -->
+    <radialGradient id="gloss" cx="36%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity=".08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <circle cx="64" cy="64" r="58" fill="url(#grad)"/>
-  <circle cx="64" cy="64" r="58" fill="none" stroke="#0b1222" stroke-opacity=".18" stroke-width="4"/>
+
+  <!-- 4-colour ball (quadrants clipped to a circle) -->
+  <g clip-path="url(#ball)">
+    <!-- top-left -->
+    <rect x="6" y="6" width="58" height="58" fill="#a78bfa"/>
+    <!-- top-right -->
+    <rect x="64" y="6" width="58" height="58" fill="#0ea5e9"/>
+    <!-- bottom-left -->
+    <rect x="6" y="64" width="58" height="58" fill="#22c55e"/>
+    <!-- bottom-right -->
+    <rect x="64" y="64" width="58" height="58" fill="#f59e0b"/>
+
+    <!-- subtle spherical gloss -->
+    <rect x="6" y="6" width="116" height="116" fill="url(#gloss)"/>
+
+    <!-- wind lines -->
+    <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-opacity=".9">
+      <path d="M8 48 C 40 40, 88 58, 120 46" stroke-width="6"/>
+      <path d="M8 68 C 48 78, 86 60, 120 76" stroke-width="6"/>
+      <path d="M8 88 C 52 96, 88 86, 120 92" stroke-width="6"/>
+    </g>
+  </g>
+
+  <!-- outer ring -->
+  <circle cx="64" cy="64" r="58" fill="none" stroke="#0b1222" stroke-opacity=".22" stroke-width="4"/>
 </svg>
 
