@@ -28,10 +28,18 @@
     if((sites||[]).length){
       let maxPx = 0;
       for(const t of labels){
-        const meas = document.createElement('div'); meas.className='pill';
-        meas.style.position='absolute'; meas.style.visibility='hidden'; meas.style.whiteSpace='nowrap'; meas.style.display='inline-flex'; meas.style.alignItems='center';
-        const leftMeas = document.createElement('span'); leftMeas.innerHTML = `<span class="swatch"></span><span>${t}</span>`;
-        const btnMeas = document.createElement('button'); btnMeas.className='pill-x secondary'; btnMeas.textContent='×'; btnMeas.style.marginLeft='0'; btnMeas.style.height='auto'; btnMeas.style.lineHeight='1'; btnMeas.style.fontSize='12px';
+        const meas = document.createElement('div');
+        meas.style.position='absolute';
+        meas.style.visibility='hidden';
+        meas.style.whiteSpace='nowrap';
+        meas.style.display='inline-flex';
+        meas.style.alignItems='center';
+        meas.style.gap='6px';
+        meas.style.padding='6px 8px';
+        meas.style.fontSize='12px';
+        meas.style.border='1px solid transparent';
+        const leftMeas = document.createElement('span'); leftMeas.innerHTML = `<span class="swatch" style="width:12px;height:12px;display:inline-block;border-radius:50%;border:1px solid transparent"></span><span>${t}</span>`;
+        const btnMeas = document.createElement('button'); btnMeas.textContent='×'; btnMeas.style.marginLeft='0'; btnMeas.style.height='auto'; btnMeas.style.lineHeight='1'; btnMeas.style.fontSize='12px'; btnMeas.style.padding='0 6px'; btnMeas.style.background='transparent'; btnMeas.style.border='1px solid transparent';
         meas.appendChild(leftMeas); meas.appendChild(btnMeas);
         document.body.appendChild(meas);
         maxPx = Math.max(maxPx, meas.offsetWidth || 0);
