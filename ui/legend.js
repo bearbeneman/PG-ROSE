@@ -51,7 +51,7 @@
       const pill = document.createElement('div'); pill.className='pill';
       const txt = labels[idx] || String(s.name||'');
       if(pillWidthPx>0){ pill.style.width = pillWidthPx + 'px'; }
-      pill.style.display='inline-flex'; pill.style.alignItems='center'; pill.style.justifyContent='flex-start'; pill.style.whiteSpace='nowrap';
+      pill.style.display='inline-flex'; pill.style.alignItems='center'; pill.style.justifyContent='space-between'; pill.style.whiteSpace='nowrap';
       try{ if(/^hsl\(/i.test(String(s.color||''))){ pill.style.background = String(s.color).replace(/\)$/,' / 0.18)'); pill.style.borderColor = String(s.color); } }catch(_){/* noop */}
       const left = document.createElement('span'); left.innerHTML = `<span class="swatch" style="background:${s.color}"></span><span>${txt}</span>`;
       const btn = document.createElement('button'); btn.className='pill-x secondary'; btn.setAttribute('aria-label','Remove'); btn.textContent='×'; btn.style.marginLeft='0'; btn.style.height='auto'; btn.style.lineHeight='1'; btn.style.fontSize='12px'; btn.addEventListener('click', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); try{ window.dispatchEvent(new CustomEvent('rose:deleteSite', { detail:{ id: s.id, name: s.name } })); }catch(_){/* noop */} });
